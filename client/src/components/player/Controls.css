@@ -1,0 +1,26 @@
+.controls-container {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.controls-btn {
+  background: var(--burgundy);
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: white;
+  font-size: 16px;
+  transition:
+    background-color 0.2s ease,
+    transform 0.1s ease;
+}
+
+.controls-btn:hover {
+  background: #b00438;
+}
+
+.controls-btn:active {
+  transform: translateY(1px);
+}

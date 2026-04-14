@@ -1,0 +1,143 @@
+.songlist-container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding-bottom: 120px;
+}
+/* TRASH ZONE */
+.trash-zone {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 600px;
+  padding: 20px;
+  background: rgba(147, 3, 46, 0.2);
+  border: 3px dashed #93032e;
+  border-radius: 12px;
+  text-align: center;
+  font-size: 18px;
+  color: #93032e;
+  font-weight: 600;
+  pointer-events: auto;
+  transition: all 0.2s ease;
+  z-index: 50;
+}
+
+.trash-zone.active {
+  background: rgba(147, 3, 46, 0.4);
+  border-color: #b00438;
+  color: #b00438;
+  transform: translateX(-50%) scale(1.02);
+  box-shadow: 0 0 20px rgba(147, 3, 46, 0.3);
+}
+/* GRID */
+.songlist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 120px));
+  justify-content: center;
+  gap: 16px;
+  padding: 20px;
+}
+
+/* CARD */
+.songlist-card {
+  position: relative;
+  width: 120px;
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+  touch-action: manipulation; /* for better mobile dragging performance */
+}
+
+.songlist-card:hover {
+  transform: scale(1.03);
+}
+
+/* IMAGE */
+.songlist-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* OVERLAY */
+.songlist-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  transition: 0.2s;
+}
+
+.songlist-card:hover .songlist-overlay {
+  opacity: 1;
+}
+
+/* TITLE */
+.songlist-title {
+  color: white;
+  font-size: 14px;
+  text-align: center;
+  padding: 5px;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ACTIONS */
+.songlist-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+
+.song-action-btn {
+  background: var(--burgundy);
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.song-action-btn:hover {
+  background: #b00438;
+}
+
+/* DRAG INDICATOR */
+.songlist-drag-indicator {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 20px;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: white;
+  z-index: 10;
+  pointer-events: none; /* Visual only, no interaction */
+}
+
+/* no select when draggin */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+}

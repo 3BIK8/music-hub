@@ -1,0 +1,32 @@
+.main-content-search {
+  width: 100%;
+  max-width: 400px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid #444;
+  background: var(--night);
+  color: var(--text);
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.main-content-search:focus {
+  outline: none;
+  border-color: var(--burgundy);
+  box-shadow: 0 0 0 2px rgba(147, 3, 46, 0.2);
+}
+
+.main-content-cleanup-btn {
+  background: var(--burgundy);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-bottom: 20px;
+  transition: background-color 0.2s ease;
+}
+
+.main-content-cleanup-btn:hover {
+  background: #b00438;
+}

@@ -1,0 +1,16 @@
+.queue-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.queue-item {
+  padding: 8px;
+  background: #1a1a1a;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.queue-item.active {
+  border-left: 3px solid var(--burgundy);
+}

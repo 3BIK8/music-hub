@@ -1,0 +1,36 @@
+.player-container {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+
+  width: 420px;
+  background: var(--dark-2);
+  padding: 12px;
+  border-radius: 12px;
+  z-index: 999;
+
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.player-title {
+  font-size: 14px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.player-controls {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.player-progress {
+  margin-top: 8px;
+}
+
+.player-volume {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
