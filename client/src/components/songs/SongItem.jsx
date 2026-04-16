@@ -7,19 +7,19 @@ export default function SongItem({
   index,
   isDragging,
   justDragged,
-  setCurrentIndex,
-  setIsPlaying,
+  onPlay,
   isSearchResult = false,
   onAddToPlaylist,
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: song._id });
+    useSortable({ id: song._id }); // 🔥 ONLY _id
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
 
+  if (!song) return null;
   return (
     <div
       ref={setNodeRef}
@@ -29,9 +29,7 @@ export default function SongItem({
       {...listeners}
       onClick={() => {
         if (isDragging || justDragged) return;
-
-        setCurrentIndex(index);
-        setIsPlaying(true);
+        onPlay?.();
       }}
     >
       {!isSearchResult && <div className="songlist-drag-indicator">⋮⋮</div>}
@@ -40,17 +38,14 @@ export default function SongItem({
 
       <div className="songlist-overlay">
         <p className="songlist-title">{song.title}</p>
+
         <div className="songlist-actions">
           <button
             className="song-action-btn"
             onClick={(e) => {
               e.stopPropagation();
-              // Show playlist menu or play next
-              if (onAddToPlaylist) {
-                onAddToPlaylist(song);
-              }
+              onAddToPlaylist?.(song);
             }}
-            title="Add to playlist"
           >
             +
           </button>

@@ -15,26 +15,28 @@ export default function AddSong({ onAdd, onPlayNext }) {
     if (!url) return;
 
     setIsLoading(true);
-    try {
-      const res = await api.post("/songs", {
-        title,
-        url,
-      });
 
-      if (playNext && onPlayNext) {
-        onPlayNext(res.data);
-      } else if (onAdd) {
-        onAdd(res.data);
-      }
+    try {
+      const res = await api.post("/songs", { title, url });
+
+      const data = Array.isArray(res.data) ? res.data : [res.data];
+
+      data.forEach((song) => {
+        // ✅ ONLY ONE ENTRY POINT (NO DUPLICATES HERE)
+        if (playNext && onPlayNext) {
+          onPlayNext(song);
+        } else if (onAdd) {
+          onAdd(song);
+        }
+      });
 
       setTitle("");
       setUrl("");
     } catch (err) {
-      console.error(err);
-      const errorMsg =
-        err.response?.data?.error || err.message || "Failed to add song";
-      setError(errorMsg);
-      alert(errorMsg);
+      const msg = err.response?.data?.error || err.message || "Failed";
+
+      setError(msg);
+      setTimeout(() => setError(""), 3000);
     } finally {
       setIsLoading(false);
     }
@@ -51,25 +53,18 @@ export default function AddSong({ onAdd, onPlayNext }) {
       />
 
       <div className="add-song-buttons">
-        <button
-          type="submit"
-          className="add-song-button"
-          disabled={!url.trim() || isLoading}
-        >
+        <button disabled={!url.trim() || isLoading}>
           {isLoading ? "Extracting..." : "Add to Queue"}
         </button>
 
         <button
           type="button"
           onClick={(e) => handleSubmit(e, true)}
-          className="add-song-button play-next-btn"
           disabled={!url.trim() || isLoading}
         >
           {isLoading ? "Extracting..." : "Play Next"}
         </button>
       </div>
-
-      {isLoading && <div className="add-song-progress"></div>}
 
       {error && <p className="add-song-error">{error}</p>}
     </form>

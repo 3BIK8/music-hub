@@ -6,12 +6,22 @@ const songSchema = new mongoose.Schema(
     url: String,
     thumbnail: String,
     duration: String,
-    videoId: { type: String, unique: true, sparse: true },
+
+    sourceId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
+
+    platform: {
+      type: String, // youtube | spotify
+      required: true,
+    },
+
     audioUrl: String,
   },
   { timestamps: true },
 );
-
-songSchema.index({ videoId: 1 });
 
 export default mongoose.model("Song", songSchema);

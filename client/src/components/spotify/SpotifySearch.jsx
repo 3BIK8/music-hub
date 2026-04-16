@@ -6,6 +6,8 @@ import { PlayerContext } from "../../context/PlayerContext";
 export default function SpotifySearch() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
+  const [loadingId, setLoadingId] = useState(null);
+  const [error, setError] = useState("");
 
   const { addSongOptimistic, updateSong, songExists } =
     useContext(PlayerContext);
@@ -16,23 +18,27 @@ export default function SpotifySearch() {
       setResults(res.data);
     } catch (err) {
       console.error(err);
+      setError("Search failed");
+      setTimeout(() => setError(""), 3000);
     }
   };
 
   const addSong = async (track) => {
     if (songExists(track)) {
-      alert("Already in queue");
+      setError("Already in queue");
+      setTimeout(() => setError(""), 3000);
       return;
     }
 
-    const tempId = "temp-" + Date.now();
+    if (loadingId === track.id) return;
 
-    // IMPORTANT: use ONE unified id field
+    setLoadingId(track.id);
+
+    const tempId = "temp-" + Date.now();
     const sourceId = track.id;
 
     addSongOptimistic({
-      _id: tempId,
-      sourceId, // 🔥 THIS is now the real dedupe key
+      id: track.id,
       title: track.name,
       thumbnail: track.image,
       audioUrl: null,
@@ -42,13 +48,28 @@ export default function SpotifySearch() {
     try {
       const res = await convertSpotifyTrack(track);
 
-      // preserve sourceId in final song too
+      const alreadyInQueue = songExists(res);
+
+      if (alreadyInQueue) {
+        updateSong(tempId, null);
+        setError("Already exists");
+        setTimeout(() => setError(""), 3000);
+        return;
+      }
+
       updateSong(tempId, {
-        ...res.data,
+        ...res,
         sourceId,
+        processing: false,
       });
     } catch (err) {
       console.error(err);
+
+      updateSong(tempId, null);
+      setError("Failed to add song");
+      setTimeout(() => setError(""), 3000);
+    } finally {
+      setLoadingId(null);
     }
   };
 
@@ -61,6 +82,8 @@ export default function SpotifySearch() {
       />
       <button onClick={search}>Search</button>
 
+      {error && <div className="error-toast">{error}</div>}
+
       <div>
         {results.map((t) => (
           <div key={t.id}>
@@ -68,7 +91,10 @@ export default function SpotifySearch() {
             <span>
               {t.name} - {t.artist}
             </span>
-            <button onClick={() => addSong(t)}>Add</button>
+
+            <button onClick={() => addSong(t)} disabled={loadingId === t.id}>
+              {loadingId === t.id ? "Adding..." : "Add"}
+            </button>
           </div>
         ))}
       </div>

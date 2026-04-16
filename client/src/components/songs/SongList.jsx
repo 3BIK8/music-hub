@@ -13,15 +13,14 @@ import {
   arrayMove,
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
+
 import api from "../../api/axios";
 import { PlayerContext } from "../../context/PlayerContext";
 import SongItem from "./SongItem";
 import "./SongList.css";
 
 function TrashZone({ isDraggingOver }) {
-  const { setNodeRef } = useDroppable({
-    id: "trash-zone",
-  });
+  const { setNodeRef } = useDroppable({ id: "trash-zone" });
 
   return (
     <div
@@ -33,19 +32,11 @@ function TrashZone({ isDraggingOver }) {
   );
 }
 
-export default function SongList({
-  songs,
-  onDelete,
-  searchTerm = "",
-  onAddToPlaylist,
-}) {
+export default function SongList({ onDelete, searchTerm = "" }) {
   const { queue, setQueue, setCurrentIndex, setIsPlaying, currentIndex } =
     useContext(PlayerContext);
 
-  const filteredQueue = songs;
-
   const [isDragging, setIsDragging] = useState(false);
-  const [justDragged, setJustDragged] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [activeId, setActiveId] = useState(null);
 
@@ -55,6 +46,8 @@ export default function SongList({
     }),
   );
 
+  const list = queue.filter(Boolean);
+
   const handleDragEnd = async (event) => {
     const { active, over } = event;
 
@@ -62,37 +55,32 @@ export default function SongList({
     setIsDraggingOver(false);
     setActiveId(null);
 
-    setJustDragged(true);
-    setTimeout(() => setJustDragged(false), 150);
-
     if (!over) return;
 
+    const activeId = active.id; // ALWAYS _id
+
+    // 🗑 DELETE
     if (over.id === "trash-zone") {
-      const songId = active.id;
-
       try {
-        await api.delete(`/songs/${songId}`);
+        await api.delete(`/songs/${activeId}`);
 
-        const indexToDelete = queue.findIndex((s) => s._id === songId);
-        const newQueue = queue.filter((s) => s._id !== songId);
-
+        const newQueue = queue.filter((s) => s._id !== activeId);
         setQueue(newQueue);
 
-        if (indexToDelete === currentIndex) {
-          setCurrentIndex((i) =>
-            i < newQueue.length ? i : newQueue.length - 1,
-          );
-        } else if (indexToDelete < currentIndex) {
-          setCurrentIndex((i) => i - 1);
+        if (newQueue.length === 0) {
+          setCurrentIndex(0);
+        } else if (currentIndex >= newQueue.length) {
+          setCurrentIndex(newQueue.length - 1);
         }
 
-        if (onDelete) onDelete(songId);
+        onDelete?.(activeId);
       } catch (err) {
-        console.error("Failed to delete song", err);
+        console.error("Delete failed", err);
       }
       return;
     }
 
+    // 🔁 REORDER
     if (active.id === over.id) return;
 
     const oldIndex = queue.findIndex((s) => s._id === active.id);
@@ -100,17 +88,10 @@ export default function SongList({
 
     if (oldIndex === -1 || newIndex === -1) return;
 
-    const newQueue = arrayMove(queue, oldIndex, newIndex);
-    setQueue(newQueue);
-  };
-
-  const handleDragOver = (event) => {
-    const isOverTrash = event.over?.id === "trash-zone";
-    setIsDraggingOver((prev) => (prev !== isOverTrash ? isOverTrash : prev));
+    setQueue(arrayMove(queue, oldIndex, newIndex));
   };
 
   const isSearchActive = searchTerm.trim() !== "";
-  const list = queue;
 
   return (
     <div className={`songlist-container ${isDragging ? "no-select" : ""}`}>
@@ -120,13 +101,9 @@ export default function SongList({
         onDragStart={({ active }) => {
           setActiveId(active.id);
           setIsDragging(true);
-          document.body.classList.add("dragging");
         }}
-        onDragEnd={(e) => {
-          document.body.classList.remove("dragging");
-          handleDragEnd(e);
-        }}
-        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+        onDragOver={(e) => setIsDraggingOver(e.over?.id === "trash-zone")}
       >
         {isDragging && !isSearchActive && (
           <TrashZone isDraggingOver={isDraggingOver} />
@@ -142,20 +119,14 @@ export default function SongList({
                 key={song._id}
                 song={song}
                 index={index}
-                onDelete={onDelete}
                 onPlay={() => {
-                  const actualIndex = queue.findIndex(
-                    (s) => s._id === song._id,
-                  );
-                  setCurrentIndex(actualIndex);
+                  const idx = queue.findIndex((s) => s._id === song._id);
+
+                  if (idx === -1) return;
+
+                  setCurrentIndex(idx);
                   setIsPlaying(true);
                 }}
-                isSearchResult={isSearchActive}
-                isDragging={isDragging}
-                justDragged={justDragged}
-                setCurrentIndex={setCurrentIndex}
-                setIsPlaying={setIsPlaying}
-                onAddToPlaylist={onAddToPlaylist}
               />
             ))}
           </div>

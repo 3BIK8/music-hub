@@ -1,12 +1,14 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useRef, useEffect, useState } from "react";
 import { PlayerContext } from "../../context/PlayerContext";
+
 import Controls from "./Controls";
-import Volume from "./Volume";
 import ProgressBar from "./ProgressBar";
+import Volume from "./Volume";
+
 import "./Player.css";
 
 export default function Player() {
-  const { queue, currentIndex, setCurrentIndex, setIsPlaying, isPlaying } =
+  const { queue, currentIndex, setCurrentIndex, isPlaying, setIsPlaying } =
     useContext(PlayerContext);
 
   const audioRef = useRef(null);
@@ -15,12 +17,11 @@ export default function Player() {
   const [uiProgress, setUiProgress] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  const song = queue[currentIndex];
+  const song = queue?.[currentIndex];
 
-  // 🎧 LOAD + PLAY / PAUSE
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !song) return;
+    if (!audio || !song?.audioUrl) return;
 
     if (audio.src !== song.audioUrl) {
       audio.src = song.audioUrl;
@@ -33,70 +34,61 @@ export default function Player() {
     } else {
       audio.pause();
     }
-  }, [song, isPlaying, setIsPlaying]);
+  }, [song, isPlaying]);
 
-  // ⏱ EVENTS
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const handleTimeUpdate = () => setUiProgress(audio.currentTime);
-    const handleLoadedMetadata = () => setDuration(audio.duration || 0);
+    const onTime = () => setUiProgress(audio.currentTime);
+    const onMeta = () => setDuration(audio.duration || 0);
 
-    const handleEnded = () => {
+    const onEnd = () => {
       setCurrentIndex((i) => (i < queue.length - 1 ? i + 1 : 0));
     };
 
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-
-    audio.addEventListener("timeupdate", handleTimeUpdate);
-    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
-    audio.addEventListener("ended", handleEnded);
-    audio.addEventListener("play", handlePlay);
-    audio.addEventListener("pause", handlePause);
+    audio.addEventListener("timeupdate", onTime);
+    audio.addEventListener("loadedmetadata", onMeta);
+    audio.addEventListener("ended", onEnd);
 
     return () => {
-      audio.removeEventListener("timeupdate", handleTimeUpdate);
-      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
-      audio.removeEventListener("ended", handleEnded);
-      audio.removeEventListener("play", handlePlay);
-      audio.removeEventListener("pause", handlePause);
+      audio.removeEventListener("timeupdate", onTime);
+      audio.removeEventListener("loadedmetadata", onMeta);
+      audio.removeEventListener("ended", onEnd);
     };
-  }, [queue.length, setCurrentIndex, setIsPlaying]);
+  }, [queue.length]);
 
-  // 🔊 VOLUME
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = volume / 100;
     }
   }, [volume]);
 
-  // 🎯 SEEK
-  const handleSeek = (time) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = time;
-      setUiProgress(time);
-    }
-  };
+  if (!song) return null;
 
   return (
     <div className="player-container">
-      <div className="player-title">🎵 {song?.title || "No song selected"}</div>
+      <audio ref={audioRef} />
 
-      <audio ref={audioRef} crossOrigin="anonymous" />
+      <div className="player-title">{song.title}</div>
 
       <div className="player-controls">
         <Controls
           isPlaying={isPlaying}
-          onPrev={() => setCurrentIndex((i) => (i > 0 ? i - 1 : 0))}
           onPlayPause={() => {
-            if (!audioRef.current) return;
-            isPlaying ? audioRef.current.pause() : audioRef.current.play();
+            const audio = audioRef.current;
+            if (!audio) return;
+
+            setIsPlaying((p) => {
+              if (p) audio.pause();
+              else audio.play();
+              return !p;
+            });
           }}
           onNext={() =>
             setCurrentIndex((i) => (i < queue.length - 1 ? i + 1 : i))
           }
+          onPrev={() => setCurrentIndex((i) => (i > 0 ? i - 1 : 0))}
         />
       </div>
 
@@ -104,7 +96,10 @@ export default function Player() {
         <ProgressBar
           uiProgress={uiProgress}
           duration={duration}
-          onSeek={handleSeek}
+          onSeek={(t) => {
+            audioRef.current.currentTime = t;
+            setUiProgress(t);
+          }}
         />
       </div>
 
