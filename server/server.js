@@ -7,6 +7,8 @@ import dotenv from "dotenv";
 import songRoutes from "./routes/songRoutes.js";
 import fetchRoutes from "./routes/fetchRoutes.js";
 import playlistRoutes from "./routes/playlistRoutes.js";
+import spotifyRoutes from "./routes/spotifyRoutes.js";
+
 dotenv.config();
 const app = express();
 
@@ -15,7 +17,7 @@ app.use(express.json());
 app.use("/api/songs", songRoutes);
 app.use("/api/fetch", fetchRoutes);
 app.use("/api/playlists", playlistRoutes);
-
+app.use("/api/spotify", spotifyRoutes);
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))

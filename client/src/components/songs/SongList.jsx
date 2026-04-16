@@ -1,11 +1,12 @@
 import React, { useContext, useState } from "react";
 import {
   DndContext,
-  closestCenter,
+  closestCorners,
   useSensor,
   useSensors,
   PointerSensor,
   useDroppable,
+  DragOverlay,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -46,12 +47,11 @@ export default function SongList({
   const [isDragging, setIsDragging] = useState(false);
   const [justDragged, setJustDragged] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [activeId, setActiveId] = useState(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // Require 8px movement before drag starts
-      },
+      activationConstraint: { distance: 8 },
     }),
   );
 
@@ -60,6 +60,8 @@ export default function SongList({
 
     setIsDragging(false);
     setIsDraggingOver(false);
+    setActiveId(null);
+
     setJustDragged(true);
     setTimeout(() => setJustDragged(false), 150);
 
@@ -67,10 +69,23 @@ export default function SongList({
 
     if (over.id === "trash-zone") {
       const songId = active.id;
+
       try {
         await api.delete(`/songs/${songId}`);
-        const updated = queue.filter((s) => s._id !== songId);
-        setQueue(updated);
+
+        const indexToDelete = queue.findIndex((s) => s._id === songId);
+        const newQueue = queue.filter((s) => s._id !== songId);
+
+        setQueue(newQueue);
+
+        if (indexToDelete === currentIndex) {
+          setCurrentIndex((i) =>
+            i < newQueue.length ? i : newQueue.length - 1,
+          );
+        } else if (indexToDelete < currentIndex) {
+          setCurrentIndex((i) => i - 1);
+        }
+
         if (onDelete) onDelete(songId);
       } catch (err) {
         console.error("Failed to delete song", err);
@@ -90,21 +105,20 @@ export default function SongList({
   };
 
   const handleDragOver = (event) => {
-    setIsDraggingOver(event.over?.id === "trash-zone");
+    const isOverTrash = event.over?.id === "trash-zone";
+    setIsDraggingOver((prev) => (prev !== isOverTrash ? isOverTrash : prev));
   };
 
   const isSearchActive = searchTerm.trim() !== "";
+  const list = queue;
 
   return (
     <div className={`songlist-container ${isDragging ? "no-select" : ""}`}>
-      {isDragging && !isSearchActive && (
-        <TrashZone isDraggingOver={isDraggingOver} />
-      )}
-
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={() => {
+        collisionDetection={closestCorners}
+        onDragStart={({ active }) => {
+          setActiveId(active.id);
           setIsDragging(true);
           document.body.classList.add("dragging");
         }}
@@ -114,12 +128,16 @@ export default function SongList({
         }}
         onDragOver={handleDragOver}
       >
+        {isDragging && !isSearchActive && (
+          <TrashZone isDraggingOver={isDraggingOver} />
+        )}
+
         <SortableContext
-          items={(isSearchActive ? filteredQueue : queue).map((s) => s._id)}
+          items={list.map((s) => s._id)}
           strategy={rectSortingStrategy}
         >
           <div className="songlist-grid">
-            {(isSearchActive ? filteredQueue : queue).map((song, index) => (
+            {list.map((song, index) => (
               <SongItem
                 key={song._id}
                 song={song}
@@ -142,6 +160,15 @@ export default function SongList({
             ))}
           </div>
         </SortableContext>
+
+        <DragOverlay>
+          {activeId ? (
+            <SongItem
+              song={queue.find((s) => s._id === activeId)}
+              dragOverlay
+            />
+          ) : null}
+        </DragOverlay>
       </DndContext>
     </div>
   );

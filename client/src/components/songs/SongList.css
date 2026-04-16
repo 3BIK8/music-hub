@@ -9,7 +9,8 @@
   position: fixed;
   top: 20px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateZ(0);
+  will-change: transform;
   width: 90%;
   max-width: 600px;
   padding: 20px;
@@ -21,7 +22,10 @@
   color: #93032e;
   font-weight: 600;
   pointer-events: auto;
-  transition: all 0.2s ease;
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
   z-index: 50;
 }
 

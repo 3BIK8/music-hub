@@ -1,4 +1,5 @@
 import PlaylistList from "./playlists/PlaylistList";
+import SpotifySearch from "./spotify/SpotifySearch";
 
 const Sidebar = ({ selectedPlaylistId, onSelectPlaylist }) => {
   return (
@@ -7,6 +8,7 @@ const Sidebar = ({ selectedPlaylistId, onSelectPlaylist }) => {
         onSelectPlaylist={onSelectPlaylist}
         selectedPlaylistId={selectedPlaylistId}
       />
+      <SpotifySearch />
     </div>
   );
 };

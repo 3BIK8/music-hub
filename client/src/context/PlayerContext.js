@@ -19,6 +19,21 @@ export function PlayerProvider({ children }) {
     });
   };
 
+  const addSongOptimistic = (song) => {
+    setQueue((prev) => [...prev, song]);
+  };
+
+  const updateSong = (tempId, newSong) => {
+    setQueue((prev) => prev.map((s) => (s._id === tempId ? newSong : s)));
+  };
+
+  // FIXED dedupe (youtube + spotify )
+  const songExists = (track) => {
+    const id = track.id;
+
+    return queue.some((s) => s.sourceId === id);
+  };
+
   return (
     <PlayerContext.Provider
       value={{
@@ -31,6 +46,10 @@ export function PlayerProvider({ children }) {
         isPlaying,
         setIsPlaying,
         reorderQueue,
+
+        addSongOptimistic,
+        updateSong,
+        songExists,
       }}
     >
       {children}

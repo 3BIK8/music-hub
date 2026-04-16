@@ -1,3 +1,5 @@
+const videoCache = new Map();
+
 import { google } from "googleapis";
 import dotenv from "dotenv";
 
@@ -80,6 +82,10 @@ export const fetchYoutubeVideo = async (url) => {
   const videoId = getYoutubeId(url);
   if (!videoId) return null;
 
+  if (videoCache.has(videoId)) {
+    return videoCache.get(videoId);
+  }
+
   const response = await youtube.videos.list({
     part: "snippet,contentDetails",
     id: videoId,
@@ -88,7 +94,7 @@ export const fetchYoutubeVideo = async (url) => {
   const video = response.data.items[0];
   if (!video) return null;
 
-  return {
+  const result = {
     videoId,
     title: video.snippet.title,
     description: video.snippet.description,
@@ -96,6 +102,10 @@ export const fetchYoutubeVideo = async (url) => {
     duration: video.contentDetails?.duration || "",
     snippet: video.snippet,
   };
+
+  videoCache.set(videoId, result);
+
+  return result;
 };
 
 export const fetchYoutubePlaylist = async (url) => {
@@ -169,4 +179,19 @@ export const fetchYoutubePlaylist = async (url) => {
     itemCount: playlistItems.length,
     items: playlistItems,
   };
+};
+
+export const searchYoutube = async (query) => {
+  const response = await youtube.search.list({
+    part: "snippet",
+    q: query,
+    maxResults: 1,
+    type: "video",
+  });
+
+  const video = response.data.items?.[0];
+
+  if (!video) return null;
+
+  return video.id.videoId;
 };
