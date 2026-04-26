@@ -1,10 +1,7 @@
-import { useState } from "react";
 import { formatTime } from "../../utils/formatTime";
 import "./ProgressBar.css";
 
 export default function ProgressBar({ uiProgress, duration, onSeek }) {
-  const [isDragging, setIsDragging] = useState(false);
-
   const handleSeek = (clientX, rect) => {
     if (!duration) return 0;
 
@@ -30,7 +27,6 @@ export default function ProgressBar({ uiProgress, duration, onSeek }) {
         className="progress-container"
         onMouseDown={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
-          setIsDragging(true);
 
           const move = (ev) => {
             const time = handleSeek(ev.clientX, rect);
@@ -40,7 +36,6 @@ export default function ProgressBar({ uiProgress, duration, onSeek }) {
           const up = (ev) => {
             const time = handleSeek(ev.clientX, rect);
             if (onSeek) onSeek(time);
-            setIsDragging(false);
 
             window.removeEventListener("mousemove", move);
             window.removeEventListener("mouseup", up);

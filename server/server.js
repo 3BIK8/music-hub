@@ -22,7 +22,9 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.log(err));
-
+app.get("/test", (req, res) => {
+  res.json({ ok: true });
+});
 app.get("/", (req, res) => {
   res.send("API running");
 });

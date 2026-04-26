@@ -1,4 +1,4 @@
-import { useEffect, useContext } from "react";
+import { useContext, useEffect } from "react";
 import Player from "./components/player/Player";
 import QueueView from "./components/queue/QueueView";
 import MainContent from "./components/MainContent";
@@ -10,29 +10,41 @@ import { useSearch } from "./hooks/useSearch";
 import "./styles.css";
 
 function App() {
-  const { setQueue, currentIndex } = useContext(PlayerContext);
+  const { setQueue, currentSong } = useContext(PlayerContext);
 
   const { songs, addSongs, deleteSong, cleanupInvalidSongs } = useSongs();
-
   const { selectedPlaylist, selectPlaylist } = usePlaylists();
-
   const { searchTerm, setSearchTerm, filteredSongs } = useSearch(songs);
 
   useEffect(() => {
-    const songsToShow = selectedPlaylist
-      ? selectedPlaylist.songs
-      : filteredSongs;
+    const songsToShow = selectedPlaylist ? selectedPlaylist.songs || [] : filteredSongs;
     setQueue(songsToShow);
-  }, [songs, searchTerm, selectedPlaylist, setQueue]);
+  }, [filteredSongs, selectedPlaylist, setQueue]);
 
   const handlePlayNext = (song) => {
-    const songsToShow = selectedPlaylist
-      ? selectedPlaylist.songs
-      : filteredSongs;
-    const insertIndex = currentIndex + 1;
-    const updated = [...songsToShow];
-    updated.splice(insertIndex, 0, song);
-    setQueue(updated);
+    if (!song?.songId) return;
+
+    setQueue((prevQueue) => {
+      const withoutDuplicate = prevQueue.filter(
+        (queuedSong) => queuedSong.songId !== song.songId,
+      );
+
+      if (!currentSong?.songId) {
+        return [song, ...withoutDuplicate];
+      }
+
+      const currentPosition = withoutDuplicate.findIndex(
+        (queuedSong) => queuedSong.songId === currentSong.songId,
+      );
+
+      if (currentPosition < 0) {
+        return [song, ...withoutDuplicate];
+      }
+
+      const nextQueue = [...withoutDuplicate];
+      nextQueue.splice(currentPosition + 1, 0, song);
+      return nextQueue;
+    });
   };
 
   const handleAddToPlaylist = async (song) => {

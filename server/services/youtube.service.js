@@ -3,180 +3,66 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// ✅ caches
-const videoCache = new Map();
-const searchCache = new Map();
-const playlistCache = new Map();
-
 const youtube = google.youtube({
   version: "v3",
   auth: process.env.YOUTUBE_API_KEY,
 });
 
-const getBestThumbnail = (thumbnails = {}) =>
-  thumbnails.maxres?.url ||
-  thumbnails.high?.url ||
-  thumbnails.medium?.url ||
-  thumbnails.default?.url ||
-  "";
+const videoCache = new Map();
+const searchCache = new Map();
 
-const normalizeUrl = (url) => {
-  const cleanedUrl = String(url || "").trim();
-  if (!cleanedUrl) return null;
-  return /^https?:\/\//i.test(cleanedUrl)
-    ? cleanedUrl
-    : `https://${cleanedUrl}`;
-};
+const getBestThumbnail = (t = {}) =>
+  t.maxres?.url || t.high?.url || t.medium?.url || t.default?.url || "";
 
 export const getYoutubeId = (url) => {
-  const normalizedUrl = normalizeUrl(url);
-  if (!normalizedUrl) return null;
-
   try {
-    const parsedUrl = new URL(normalizedUrl);
-    const hostname = parsedUrl.hostname.toLowerCase();
-    const pathname = parsedUrl.pathname;
-
-    if (hostname.includes("youtu.be")) {
-      return pathname.slice(1) || null;
-    }
-
-    if (
-      hostname.includes("youtube.com") ||
-      hostname.includes("youtube-nocookie.com")
-    ) {
-      if (pathname.startsWith("/watch")) {
-        return parsedUrl.searchParams.get("v") || null;
-      }
-
-      if (pathname.startsWith("/shorts/") || pathname.startsWith("/embed/")) {
-        return pathname.split("/")[2] || null;
-      }
-    }
-  } catch {}
-
-  const fallbackRegExp =
-    /(?:https?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([^&?/]+)/i;
-
-  const match = String(url).match(fallbackRegExp);
-  return match ? match[1] : null;
-};
-
-export const getYoutubePlaylistId = (url) => {
-  const normalizedUrl = normalizeUrl(url);
-  if (!normalizedUrl) return null;
-
-  try {
-    const parsedUrl = new URL(normalizedUrl);
-    const playlistId = parsedUrl.searchParams.get("list");
-    if (playlistId) return playlistId;
-  } catch {}
-
-  const fallbackRegExp = /[?&]list=([a-zA-Z0-9_-]+)/i;
-  const match = String(url).match(fallbackRegExp);
-  return match ? match[1] : null;
-};
-
-export const fetchYoutubeVideo = async (url) => {
-  const videoId = getYoutubeId(url);
-  if (!videoId) return null;
-
-  // ✅ cache
-  if (videoCache.has(videoId)) {
-    return videoCache.get(videoId);
+    const u = new URL(url);
+    if (u.hostname.includes("youtu.be")) return u.pathname.slice(1);
+    return u.searchParams.get("v");
+  } catch {
+    return null;
   }
-
-  const response = await youtube.videos.list({
-    part: "snippet,contentDetails",
-    id: videoId,
-  });
-
-  const video = response.data.items[0];
-  if (!video) return null;
-
-  const result = {
-    videoId,
-    title: video.snippet.title,
-    description: video.snippet.description,
-    thumbnail: getBestThumbnail(video.snippet.thumbnails),
-    duration: video.contentDetails?.duration || "",
-  };
-
-  videoCache.set(videoId, result); // ✅ FIXED
-
-  return result;
 };
 
-export const fetchYoutubePlaylist = async (url) => {
-  const playlistId = getYoutubePlaylistId(url);
-  if (!playlistId) return null;
+export const searchYoutubeVideoId = async (query) => {
+  const key = query.toLowerCase().trim();
+  if (searchCache.has(key)) return searchCache.get(key);
 
-  // ✅ cache
-  if (playlistCache.has(playlistId)) {
-    return playlistCache.get(playlistId);
-  }
-
-  const playlistResponse = await youtube.playlists.list({
-    part: "snippet",
-    id: playlistId,
-  });
-
-  const playlist = playlistResponse.data.items?.[0];
-  if (!playlist) return null;
-
-  let items = [];
-  let nextPageToken;
-
-  do {
-    const response = await youtube.playlistItems.list({
-      part: "snippet,contentDetails",
-      playlistId,
-      maxResults: 50,
-      pageToken: nextPageToken,
-    });
-
-    items = items.concat(response.data.items || []);
-    nextPageToken = response.data.nextPageToken;
-  } while (nextPageToken);
-
-  const result = {
-    playlistId,
-    title: playlist.snippet.title,
-    itemCount: items.length,
-    items: items.map((item) => ({
-      videoId: item.contentDetails.videoId,
-      title: item.snippet.title,
-      thumbnail: getBestThumbnail(item.snippet.thumbnails),
-      url: `https://www.youtube.com/watch?v=${item.contentDetails.videoId}`,
-    })),
-  };
-
-  playlistCache.set(playlistId, result); // ✅
-
-  return result;
-};
-
-export const searchYoutube = async (query) => {
-  const key = query.toLowerCase();
-
-  // ✅ cache
-  if (searchCache.has(key)) {
-    return searchCache.get(key);
-  }
-
-  const response = await youtube.search.list({
+  const res = await youtube.search.list({
     part: "snippet",
     q: query,
     maxResults: 1,
     type: "video",
   });
 
-  const video = response.data.items?.[0];
-  if (!video) return null;
+  const id = res.data.items?.[0]?.id?.videoId || null;
+  if (id) searchCache.set(key, id);
+  return id;
+};
 
-  const videoId = video.id.videoId;
+export const fetchYoutubeVideo = async (url) => {
+  const videoId = getYoutubeId(url);
+  if (!videoId) return null;
 
-  searchCache.set(key, videoId); // ✅
+  if (videoCache.has(videoId)) return videoCache.get(videoId);
 
-  return videoId;
+  const res = await youtube.videos.list({
+    part: "snippet,contentDetails",
+    id: videoId,
+  });
+
+  const v = res.data.items?.[0];
+  if (!v) return null;
+
+  const result = {
+    videoId,
+    title: v.snippet.title,
+    channelTitle: v.snippet.channelTitle,
+    thumbnail: getBestThumbnail(v.snippet.thumbnails),
+    duration: v.contentDetails?.duration || "",
+    url: `https://www.youtube.com/watch?v=${videoId}`,
+  };
+
+  videoCache.set(videoId, result);
+  return result;
 };

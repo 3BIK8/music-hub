@@ -6,12 +6,22 @@ export const useSearch = (songs) => {
   const filteredSongs = useMemo(() => {
     if (!searchTerm.trim()) return songs;
 
+    const q = searchTerm.toLowerCase();
+
     return songs.filter(
       (song) =>
-        song.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        song.url.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (song.videoId &&
-          song.videoId.toLowerCase().includes(searchTerm.toLowerCase())),
+        String(song.title || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(song.url || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(song.sourceId || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(song.songId || "")
+          .toLowerCase()
+          .includes(q),
     );
   }, [songs, searchTerm]);
 

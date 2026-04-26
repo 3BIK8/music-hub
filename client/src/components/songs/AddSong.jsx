@@ -19,16 +19,19 @@ export default function AddSong({ onAdd, onPlayNext }) {
     try {
       const res = await api.post("/songs", { title, url });
 
-      const data = Array.isArray(res.data) ? res.data : [res.data];
+      const payload = res.data;
+      const song = payload.song || payload;
 
-      data.forEach((song) => {
-        // ✅ ONLY ONE ENTRY POINT (NO DUPLICATES HERE)
-        if (playNext && onPlayNext) {
-          onPlayNext(song);
-        } else if (onAdd) {
-          onAdd(song);
-        }
-      });
+      const enrichedSong = {
+        ...song,
+        isExisting: payload.isExisting || false,
+      };
+
+      if (playNext && onPlayNext) {
+        onPlayNext(enrichedSong);
+      } else if (onAdd) {
+        onAdd(enrichedSong);
+      }
 
       setTitle("");
       setUrl("");

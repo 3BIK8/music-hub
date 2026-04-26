@@ -1,61 +1,45 @@
-import { searchYoutube } from "./youtube.service.js";
+import { searchYoutubeVideoId } from "./youtube.service.js";
 import { extractAndUploadAudio } from "./audio.service.js";
 import Song from "../models/Song.js";
+import { buildSongIdentity } from "./songIdentity.service.js";
 
-// ✅ GLOBAL cache (outside function)
-const spotifyYTCache = new Map();
+const cache = new Map();
 
 export async function spotifyToYoutube(track) {
-  const key = `${track.artist}-${track.name}`.toLowerCase();
+  const key = track.id;
+  if (cache.has(key)) return cache.get(key);
 
-  // ✅ 1. CACHE FIRST
-  if (spotifyYTCache.has(key)) {
-    return spotifyYTCache.get(key);
-  }
+  const videoId = await searchYoutubeVideoId(
+    `${track.name} ${track.artist} audio`,
+  );
 
-  // ✅ 2. DB FIRST
-  const existing = await Song.findOne({
-    title: track.name,
-  });
+  if (!videoId) throw new Error("No video found");
 
-  if (existing) {
-    spotifyYTCache.set(key, existing);
-    return existing;
-  }
+  const youtubeSongId = `youtube_${videoId}`;
 
-  // ✅ 3. SEARCH YOUTUBE
-  const query = `${track.name} ${track.artist}`;
-  const videoId = await searchYoutube(query);
+  const existingYoutube = await Song.findOne({ songId: youtubeSongId });
+  if (existingYoutube?.audioUrl) return existingYoutube;
 
-  if (!videoId) {
-    throw new Error("No YouTube video found");
-  }
-
-  // ✅ 4. CHECK AGAIN WITH videoId (VERY IMPORTANT)
-  const existingByVideo = await Song.findOne({ videoId });
-  if (existingByVideo) {
-    spotifyYTCache.set(key, existingByVideo);
-    return existingByVideo;
-  }
-
-  // ✅ 5. EXTRACT AUDIO
-  const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-  const audioUrl = await extractAndUploadAudio(youtubeUrl);
-
-  if (!audioUrl) {
-    throw new Error("Audio extraction failed");
-  }
-
-  const result = {
+  const identity = buildSongIdentity({
     title: track.name,
     artist: track.artist,
+    duration: track.duration_ms,
+  });
+
+  const existingGlobal = await Song.findOne({
+    normalizedKey: identity.normalizedKey,
+  });
+
+  if (existingGlobal?.audioUrl) return existingGlobal;
+
+  const url = `https://www.youtube.com/watch?v=${videoId}`;
+  const audioUrl = await extractAndUploadAudio(url);
+
+  const result = {
     youtubeId: videoId,
-    image: track.image,
     audioUrl,
   };
 
-  // ✅ 6. SAVE CACHE
-  spotifyYTCache.set(key, result);
-
+  cache.set(key, result);
   return result;
 }

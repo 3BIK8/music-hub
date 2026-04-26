@@ -117,3 +117,8 @@
     left: 100%;
   }
 }
+.songlist-duplicate {
+  font-size: 10px;
+  color: #aaa;
+  margin-top: 4px;
+}

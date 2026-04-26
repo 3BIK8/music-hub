@@ -4,22 +4,28 @@ import { CSS } from "@dnd-kit/utilities";
 
 export default function SongItem({
   song,
-  index,
   isDragging,
   justDragged,
   onPlay,
   isSearchResult = false,
   onAddToPlaylist,
+  dragOverlay = false,
 }) {
+  const songId = song?.songId || "missing-song-id";
+
   const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: song._id }); // 🔥 ONLY _id
+    useSortable({
+      id: songId,
+      disabled: dragOverlay || isSearchResult || !song?.songId,
+    });
+
+  if (!song?.songId) return null;
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
 
-  if (!song) return null;
   return (
     <div
       ref={setNodeRef}
@@ -32,12 +38,18 @@ export default function SongItem({
         onPlay?.();
       }}
     >
-      {!isSearchResult && <div className="songlist-drag-indicator">⋮⋮</div>}
+      {!isSearchResult && !dragOverlay && (
+        <div className="songlist-drag-indicator">..</div>
+      )}
 
       <img src={song.thumbnail} alt={song.title} className="songlist-img" />
 
       <div className="songlist-overlay">
         <p className="songlist-title">{song.title}</p>
+
+        {song.isExisting && (
+          <span className="songlist-duplicate">Already in queue</span>
+        )}
 
         <div className="songlist-actions">
           <button

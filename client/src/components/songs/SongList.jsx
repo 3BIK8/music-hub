@@ -1,12 +1,12 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useMemo, useState } from "react";
 import {
   DndContext,
+  DragOverlay,
+  PointerSensor,
   closestCorners,
+  useDroppable,
   useSensor,
   useSensors,
-  PointerSensor,
-  useDroppable,
-  DragOverlay,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -27,13 +27,18 @@ function TrashZone({ isDraggingOver }) {
       ref={setNodeRef}
       className={`trash-zone ${isDraggingOver ? "active" : ""}`}
     >
-      🗑️ Drop to delete
+      Drop to delete
     </div>
   );
 }
 
-export default function SongList({ onDelete, searchTerm = "" }) {
-  const { queue, setQueue, setCurrentIndex, setIsPlaying, currentIndex } =
+export default function SongList({
+  songs = [],
+  onDelete,
+  searchTerm = "",
+  onAddToPlaylist,
+}) {
+  const { queue, setQueue, removeSong, playSongBySongId, getId } =
     useContext(PlayerContext);
 
   const [isDragging, setIsDragging] = useState(false);
@@ -46,7 +51,17 @@ export default function SongList({ onDelete, searchTerm = "" }) {
     }),
   );
 
-  const list = queue.filter(Boolean);
+  const isSearchActive = searchTerm.trim() !== "";
+
+  const safeQueue = useMemo(
+    () => queue.filter((song) => song && getId(song)),
+    [queue, getId],
+  );
+
+  const list = useMemo(() => {
+    const source = isSearchActive ? songs : safeQueue;
+    return source.filter((song) => song && getId(song));
+  }, [isSearchActive, songs, safeQueue, getId]);
 
   const handleDragEnd = async (event) => {
     const { active, over } = event;
@@ -57,41 +72,55 @@ export default function SongList({ onDelete, searchTerm = "" }) {
 
     if (!over) return;
 
-    const activeId = active.id; // ALWAYS _id
+    const draggedSongId = String(active.id || "");
+    if (!draggedSongId) return;
 
-    // 🗑 DELETE
+    // =========================
+    // DELETE FLOW (FIXED)
+    // =========================
     if (over.id === "trash-zone") {
+      const songToDelete = safeQueue.find(
+        (song) => song.songId === draggedSongId,
+      );
+
+      if (!songToDelete) return;
+
       try {
-        await api.delete(`/songs/${activeId}`);
-
-        const newQueue = queue.filter((s) => s._id !== activeId);
-        setQueue(newQueue);
-
-        if (newQueue.length === 0) {
-          setCurrentIndex(0);
-        } else if (currentIndex >= newQueue.length) {
-          setCurrentIndex(newQueue.length - 1);
+        // ALWAYS prefer Mongo ID
+        if (songToDelete._id) {
+          await api.delete(`/songs/${songToDelete._id}`);
+        } else {
+          console.warn("Missing _id for deletion:", songToDelete);
         }
 
-        onDelete?.(activeId);
-      } catch (err) {
-        console.error("Delete failed", err);
+        removeSong(songToDelete.songId);
+        onDelete?.(songToDelete);
+      } catch (error) {
+        console.error("Delete failed", error);
       }
+
       return;
     }
 
-    // 🔁 REORDER
+    // =========================
+    // SEARCH MODE LOCK
+    // =========================
+    if (isSearchActive) return;
+
+    // =========================
+    // REORDER QUEUE
+    // =========================
     if (active.id === over.id) return;
 
-    const oldIndex = queue.findIndex((s) => s._id === active.id);
-    const newIndex = queue.findIndex((s) => s._id === over.id);
+    setQueue((prevQueue) => {
+      const oldIndex = prevQueue.findIndex((song) => song.songId === active.id);
+      const newIndex = prevQueue.findIndex((song) => song.songId === over.id);
 
-    if (oldIndex === -1 || newIndex === -1) return;
+      if (oldIndex < 0 || newIndex < 0) return prevQueue;
 
-    setQueue(arrayMove(queue, oldIndex, newIndex));
+      return arrayMove(prevQueue, oldIndex, newIndex);
+    });
   };
-
-  const isSearchActive = searchTerm.trim() !== "";
 
   return (
     <div className={`songlist-container ${isDragging ? "no-select" : ""}`}>
@@ -99,34 +128,30 @@ export default function SongList({ onDelete, searchTerm = "" }) {
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={({ active }) => {
-          setActiveId(active.id);
+          setActiveId(String(active.id));
           setIsDragging(true);
         }}
         onDragEnd={handleDragEnd}
-        onDragOver={(e) => setIsDraggingOver(e.over?.id === "trash-zone")}
+        onDragOver={(event) =>
+          setIsDraggingOver(event.over?.id === "trash-zone")
+        }
       >
         {isDragging && !isSearchActive && (
           <TrashZone isDraggingOver={isDraggingOver} />
         )}
 
         <SortableContext
-          items={list.map((s) => s._id)}
+          items={list.map((song) => song.songId)}
           strategy={rectSortingStrategy}
         >
           <div className="songlist-grid">
-            {list.map((song, index) => (
+            {list.map((song) => (
               <SongItem
-                key={song._id}
+                key={song.songId}
                 song={song}
-                index={index}
-                onPlay={() => {
-                  const idx = queue.findIndex((s) => s._id === song._id);
-
-                  if (idx === -1) return;
-
-                  setCurrentIndex(idx);
-                  setIsPlaying(true);
-                }}
+                isSearchResult={isSearchActive}
+                onAddToPlaylist={onAddToPlaylist}
+                onPlay={() => playSongBySongId(song.songId)}
               />
             ))}
           </div>
@@ -135,7 +160,7 @@ export default function SongList({ onDelete, searchTerm = "" }) {
         <DragOverlay>
           {activeId ? (
             <SongItem
-              song={queue.find((s) => s._id === activeId)}
+              song={safeQueue.find((song) => song.songId === activeId)}
               dragOverlay
             />
           ) : null}

@@ -3,8 +3,7 @@ import { PlayerContext } from "../../context/PlayerContext";
 import "./QueueView.css";
 
 export default function QueueView() {
-  const { queue, currentIndex, setCurrentIndex, setIsPlaying } =
-    useContext(PlayerContext);
+  const { queue, currentSongId, playSongBySongId } = useContext(PlayerContext);
 
   return (
     <div className="QueView">
@@ -12,16 +11,13 @@ export default function QueueView() {
 
       {queue.map((song, index) => (
         <div
-          key={song._id}
-          onClick={() => {
-            setCurrentIndex(index);
-            setIsPlaying(true);
-          }}
+          key={song.songId}
+          onClick={() => playSongBySongId(song.songId)}
           style={{
             padding: "8px",
             marginBottom: "5px",
             cursor: "pointer",
-            background: index === currentIndex ? "#1db954" : "#1a1a1a",
+            background: song.songId === currentSongId ? "#1db954" : "#1a1a1a",
             borderRadius: "6px",
           }}
         >

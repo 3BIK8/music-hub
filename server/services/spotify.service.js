@@ -1,4 +1,3 @@
-// server/services/spotify.service.js
 import axios from "axios";
 
 let token = null;
@@ -34,21 +33,17 @@ export async function searchTracks(query) {
   const accessToken = await getSpotifyToken();
 
   const res = await axios.get("https://api.spotify.com/v1/search", {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-    params: {
-      q: query,
-      type: "track",
-      limit: 10,
-    },
+    headers: { Authorization: `Bearer ${accessToken}` },
+    params: { q: query, type: "track", limit: 10 },
   });
 
   return res.data.tracks.items.map((t) => ({
     id: t.id,
     name: t.name,
-    artist: t.artists[0].name,
-    preview: t.preview_url,
+    artist: t.artists?.[0]?.name || "",
+    artists: t.artists?.map((a) => a.name) || [],
     image: t.album.images?.[0]?.url,
+    duration_ms: t.duration_ms,
+    url: t.external_urls?.spotify,
   }));
 }

@@ -1,138 +1,148 @@
 import express from "express";
 import Song from "../models/Song.js";
-import dotenv from "dotenv";
-import { formatDuration } from "../utils/formatDuration.js";
 import {
-  fetchYoutubePlaylist,
   fetchYoutubeVideo,
   getYoutubeId,
 } from "../services/youtube.service.js";
+import { buildSongIdentity } from "../services/songIdentity.service.js";
 import { extractAndUploadAudio } from "../services/audio.service.js";
 
-dotenv.config();
 const router = express.Router();
 
-/* -------------------- CREATE -------------------- */
+/* =========================
+   GET ALL SONGS
+========================= */
+router.get("/", async (req, res) => {
+  try {
+    const songs = await Song.find().sort({ createdAt: -1 });
+    return res.json(songs);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
 
+/* =========================
+   BACKGROUND AUDIO PROCESS
+========================= */
+const startAudioJob = (songId, youtubeUrl) => {
+  setImmediate(async () => {
+    try {
+      const song = await Song.findById(songId);
+      if (!song || song.audioUrl) return;
+
+      await Song.updateOne({ _id: songId }, { $set: { processing: true } });
+
+      const audioUrl = await extractAndUploadAudio(youtubeUrl);
+
+      await Song.updateOne(
+        { _id: songId },
+        {
+          $set: {
+            audioUrl,
+            processing: false,
+            processingError: "",
+          },
+        },
+      );
+    } catch (err) {
+      await Song.updateOne(
+        { _id: songId },
+        {
+          $set: {
+            processing: false,
+            processingError: err.message,
+          },
+        },
+      );
+    }
+  });
+};
+
+/* =========================
+   CREATE YOUTUBE SONG
+========================= */
 router.post("/", async (req, res) => {
   try {
     const url = String(req.body.url || "").trim();
-
-    const playlist = await fetchYoutubePlaylist(url);
-
-    /* ================= PLAYLIST ================= */
-    if (playlist) {
-      const results = [];
-
-      for (const item of playlist.items) {
-        try {
-          const sourceId = item.videoId;
-
-          if (!sourceId) continue;
-
-          const existing = await Song.findOne({ sourceId });
-
-          if (existing) {
-            results.push(existing);
-            continue;
-          }
-
-          const audioUrl = await extractAndUploadAudio(item.url);
-
-          const song = await Song.create({
-            title: item.title,
-            url: item.url,
-            sourceId,
-            platform: "youtube",
-            thumbnail: item.thumbnail,
-            duration: formatDuration(item.duration),
-            audioUrl,
-          });
-
-          results.push(song);
-        } catch (err) {
-          console.error(`Playlist item failed: ${item.title}`, err);
-        }
-      }
-
-      return res.json(results);
+    if (!url) {
+      return res.status(400).json({ error: "Missing YouTube URL" });
     }
 
-    /* ================= SINGLE VIDEO ================= */
     const video = await fetchYoutubeVideo(url);
-
     if (!video) {
-      return res.status(400).json({ error: "Invalid or unsupported URL" });
+      return res.status(400).json({ error: "Video not found" });
     }
 
     const sourceId = video.videoId || getYoutubeId(url);
 
-    if (!sourceId) {
-      return res.status(400).json({ error: "Cannot extract video ID" });
-    }
-
-    const existing = await Song.findOne({ sourceId });
-
-    if (existing) return res.json(existing);
-
-    const audioUrl = await extractAndUploadAudio(url);
-
-    const song = await Song.create({
+    const identity = buildSongIdentity({
       title: video.title,
-      url,
-      sourceId,
-      platform: "youtube",
-      thumbnail: video.thumbnail,
-      duration: formatDuration(video.duration),
-      audioUrl,
+      artist: video.channelTitle,
+      duration: video.duration,
     });
 
-    res.json(song);
+    const existing = await Song.findOne({
+      normalizedKey: identity.normalizedKey,
+    });
+
+    if (existing) {
+      return res.json({ song: existing, isExisting: true });
+    }
+
+    const song = await Song.create({
+      songId: `youtube_${sourceId}`,
+      platform: "youtube",
+      sourceId,
+      normalizedKey: identity.normalizedKey,
+      durationBucket: identity.durationBucket,
+      title: video.title,
+      url: video.url,
+      thumbnail: video.thumbnail,
+      duration: video.duration || "",
+      audioUrl: "",
+      processing: true,
+      processingError: "",
+    });
+
+    // 🔥 THIS WAS MISSING (MAIN BUG)
+    startAudioJob(song._id, video.url);
+
+    return res.json({ song, isExisting: false });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
-/* -------------------- READ -------------------- */
-
-router.get("/", async (req, res) => {
-  try {
-    const songs = await Song.find().sort({ createdAt: -1 });
-    res.json(songs);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/* -------------------- DELETE -------------------- */
-
+/* =========================
+   DELETE SONG
+========================= */
 router.delete("/:id", async (req, res) => {
   try {
-    await Song.findByIdAndDelete(req.params.id);
-    res.json({ msg: "deleted" });
+    const deleted = await Song.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: "Not found" });
+
+    return res.json({ msg: "deleted" });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
-/* -------------------- CLEANUP -------------------- */
-
+/* =========================
+   CLEAN INVALID SONGS
+========================= */
 router.delete("/cleanup/invalid", async (req, res) => {
   try {
     const result = await Song.deleteMany({
-      $or: [
-        { audioUrl: null },
-        { audioUrl: { $exists: false } },
-        { audioUrl: "" },
-      ],
+      $or: [{ title: "" }, { normalizedKey: "" }, { normalizedKey: null }],
     });
 
-    res.json({
-      msg: `Cleaned up ${result.deletedCount} invalid songs`,
+    return res.json({
+      msg: "cleanup done",
+      deleted: result.deletedCount,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
