@@ -3,48 +3,27 @@ import Player from "./components/player/Player";
 import QueueView from "./components/queue/QueueView";
 import MainContent from "./components/MainContent";
 import Sidebar from "./components/Sidebar";
-import { PlayerContext } from "./context/PlayerContext";
+import { PlayerContext } from "./context/PlayerContextV2";
 import { useSongs } from "./hooks/useSongs";
 import { usePlaylists } from "./hooks/usePlaylists";
 import { useSearch } from "./hooks/useSearch";
 import "./styles.css";
 
 function App() {
-  const { setQueue, currentSong } = useContext(PlayerContext);
-
+  const { replaceQueue, currentSong } = useContext(PlayerContext);
   const { songs, addSongs, deleteSong, cleanupInvalidSongs } = useSongs();
   const { selectedPlaylist, selectPlaylist } = usePlaylists();
   const { searchTerm, setSearchTerm, filteredSongs } = useSearch(songs);
 
   useEffect(() => {
-    const songsToShow = selectedPlaylist ? selectedPlaylist.songs || [] : filteredSongs;
-    setQueue(songsToShow);
-  }, [filteredSongs, selectedPlaylist, setQueue]);
+    replaceQueue(selectedPlaylist ? selectedPlaylist.songs || [] : filteredSongs);
+  }, [filteredSongs, selectedPlaylist, replaceQueue]);
 
   const handlePlayNext = (song) => {
-    if (!song?.songId) return;
-
-    setQueue((prevQueue) => {
-      const withoutDuplicate = prevQueue.filter(
-        (queuedSong) => queuedSong.songId !== song.songId,
-      );
-
-      if (!currentSong?.songId) {
-        return [song, ...withoutDuplicate];
-      }
-
-      const currentPosition = withoutDuplicate.findIndex(
-        (queuedSong) => queuedSong.songId === currentSong.songId,
-      );
-
-      if (currentPosition < 0) {
-        return [song, ...withoutDuplicate];
-      }
-
-      const nextQueue = [...withoutDuplicate];
-      nextQueue.splice(currentPosition + 1, 0, song);
-      return nextQueue;
-    });
+    if (!song?.id && !song?.songId) return;
+    const queueSongId = song.id || song.songId;
+    const currentId = currentSong?.id || currentSong?.songId;
+    if (queueSongId === currentId) return;
   };
 
   const handleAddToPlaylist = async (song) => {
@@ -53,11 +32,7 @@ function App() {
 
   return (
     <div className="app-layout">
-      <Sidebar
-        selectedPlaylistId={selectedPlaylist?._id}
-        onSelectPlaylist={selectPlaylist}
-      />
-
+      <Sidebar selectedPlaylistId={selectedPlaylist?._id} onSelectPlaylist={selectPlaylist} />
       <MainContent
         songs={songs}
         filteredSongs={filteredSongs}
@@ -69,11 +44,7 @@ function App() {
         onAddToPlaylist={handleAddToPlaylist}
         onPlayNext={handlePlayNext}
       />
-
-      <div className="sidebar-right">
-        <QueueView />
-      </div>
-
+      <div className="sidebar-right"><QueueView /></div>
       <Player />
     </div>
   );

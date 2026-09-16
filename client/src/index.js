@@ -1,11 +1,13 @@
+import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import { PlayerProvider } from "./context/PlayerContext";
+import { PlayerProvider } from "./context/PlayerContextV2";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
-
 root.render(
-  <PlayerProvider>
-    <App />
-  </PlayerProvider>,
+  <React.StrictMode>
+    <PlayerProvider>
+      <App />
+    </PlayerProvider>
+  </React.StrictMode>,
 );
