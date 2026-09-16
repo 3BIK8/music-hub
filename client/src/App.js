@@ -10,7 +10,7 @@ import { useSearch } from "./hooks/useSearch";
 import "./styles.css";
 
 function App() {
-  const { replaceQueue, currentSong } = useContext(PlayerContext);
+  const { replaceQueue, addSong } = useContext(PlayerContext);
   const { songs, addSongs, deleteSong, cleanupInvalidSongs } = useSongs();
   const { selectedPlaylist, selectPlaylist } = usePlaylists();
   const { searchTerm, setSearchTerm, filteredSongs } = useSearch(songs);
@@ -20,10 +20,8 @@ function App() {
   }, [filteredSongs, selectedPlaylist, replaceQueue]);
 
   const handlePlayNext = (song) => {
-    if (!song?.id && !song?.songId) return;
-    const queueSongId = song.id || song.songId;
-    const currentId = currentSong?.id || currentSong?.songId;
-    if (queueSongId === currentId) return;
+    if (!song) return;
+    addSong(song, { playNext: true });
   };
 
   const handleAddToPlaylist = async (song) => {

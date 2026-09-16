@@ -1,15 +1,6 @@
 import React, { useContext, useMemo, useState } from "react";
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  closestCorners,
-  useDroppable,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
+import { DndContext, DragOverlay, PointerSensor, closestCorners, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
-
 import api from "../../api/axios";
 import { PlayerContext } from "../../context/PlayerContextV2";
 import SongItem from "./SongItem";
@@ -58,30 +49,20 @@ export default function SongList({ songs = [], onDelete, searchTerm = "", onAddT
 
   return (
     <div className={`songlist-container ${isDragging ? "no-select" : ""}`}>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
+      <DndContext sensors={sensors} collisionDetection={closestCorners}
         onDragStart={({ active }) => { setActiveId(String(active.id)); setIsDragging(true); }}
         onDragEnd={handleDragEnd}
-        onDragOver={(event) => setIsDraggingOver(event.over?.id === "trash-zone")}
-      >
+        onDragOver={(event) => setIsDraggingOver(event.over?.id === "trash-zone")}>
         {isDragging && !isSearchActive && <TrashZone isDraggingOver={isDraggingOver} />}
         <SortableContext items={list.map((song) => getId(song))} strategy={rectSortingStrategy}>
           <div className="songlist-grid">
             {list.map((song) => (
-              <SongItem
-                key={getId(song)}
-                song={song}
-                isSearchResult={isSearchActive}
-                onAddToPlaylist={onAddToPlaylist}
-                onPlay={() => playSongBySongId(getId(song))}
-              />
+              <SongItem key={getId(song)} song={song} isSearchResult={isSearchActive}
+                onAddToPlaylist={onAddToPlaylist} onPlay={() => playSongBySongId(getId(song))} />
             ))}
           </div>
         </SortableContext>
-        <DragOverlay>
-          {activeId ? <SongItem song={safeQueue.find((song) => getId(song) === activeId)} dragOverlay /> : null}
-        </DragOverlay>
+        <DragOverlay>{activeId ? <SongItem song={safeQueue.find((song) => getId(song) === activeId)} dragOverlay /> : null}</DragOverlay>
       </DndContext>
     </div>
   );
