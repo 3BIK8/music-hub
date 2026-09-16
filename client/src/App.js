@@ -3,7 +3,7 @@ import Player from "./components/player/Player";
 import QueueView from "./components/queue/QueueView";
 import MainContent from "./components/MainContent";
 import Sidebar from "./components/Sidebar";
-import { PlayerContext } from "./context/PlayerContextV2";
+import { PlayerContext } from "./context/PlayerContext";
 import { useSongs } from "./hooks/useSongs";
 import { usePlaylists } from "./hooks/usePlaylists";
 import { useSearch } from "./hooks/useSearch";
@@ -16,8 +16,8 @@ function App() {
   const { searchTerm, setSearchTerm, filteredSongs } = useSearch(songs);
 
   useEffect(() => {
-    replaceQueue(selectedPlaylist ? selectedPlaylist.songs || [] : filteredSongs);
-  }, [filteredSongs, selectedPlaylist, replaceQueue]);
+    replaceQueue(selectedPlaylist ? selectedPlaylist.songs || [] : songs);
+  }, [songs, selectedPlaylist, replaceQueue]);
 
   const handlePlayNext = (song) => {
     if (!song) return;
