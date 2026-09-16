@@ -1,16 +1,14 @@
 import React, { useContext, useState } from "react";
 import api from "../../api/axios";
 import { convertSpotifyTrack } from "../../api/spotifyApi";
-import { PlayerContext } from "../../context/PlayerContext";
+import { PlayerContext } from "../../context/PlayerContextV2";
 
 export default function SpotifySearch() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [loadingId, setLoadingId] = useState(null);
   const [error, setError] = useState("");
-
-  const { addSongOptimistic, updateSong, removeSong, songExists } =
-    useContext(PlayerContext);
+  const { addSong, songExists } = useContext(PlayerContext);
 
   const showError = (message) => {
     setError(message);
@@ -20,7 +18,6 @@ export default function SpotifySearch() {
   const search = async () => {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) return;
-
     try {
       const res = await api.get(`/spotify/search?q=${encodeURIComponent(trimmedQuery)}`);
       setResults(res.data);
@@ -30,46 +27,21 @@ export default function SpotifySearch() {
     }
   };
 
-  const addSong = async (track) => {
-    if (!track?.id) return;
-
-    const spotifySongId = `spotify_${track.id}`;
-
-    if (songExists(spotifySongId)) {
-      showError("Already in queue");
-      return;
-    }
-
-    if (loadingId === track.id) return;
-
+  const addTrack = async (track) => {
+    if (!track?.id || loadingId === track.id) return;
     setLoadingId(track.id);
-
-    addSongOptimistic({
-      songId: spotifySongId,
-      platform: "spotify",
-      sourceId: track.id,
-      title: track.name,
-      thumbnail: track.image,
-      url: track.url,
-      audioUrl: "",
-      duration: "",
-      processing: true,
-    });
-
     try {
-      const savedSong = await convertSpotifyTrack(track);
-
-      if (!savedSong?.songId) {
-        throw new Error("Invalid song payload returned from server");
+      const result = await convertSpotifyTrack(track);
+      const savedSong = result?.song || result;
+      const id = savedSong?.id || savedSong?.songId;
+      if (!id) throw new Error("Invalid song payload returned from server");
+      if (songExists(id)) {
+        showError("Already in queue");
+        return;
       }
-
-      updateSong(spotifySongId, {
-        ...savedSong,
-        processing: false,
-      });
+      addSong(savedSong, { startPlaying: !savedSong.audioUrl });
     } catch (err) {
       console.error(err);
-      removeSong(spotifySongId);
       showError("Failed to add song");
     } finally {
       setLoadingId(null);
@@ -78,36 +50,18 @@ export default function SpotifySearch() {
 
   return (
     <div>
-      <input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search Spotify..."
-      />
+      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search Spotify..." />
       <button onClick={search}>Search</button>
-
       {error && <div className="error-toast">{error}</div>}
-
       <div>
         {results.map((track) => {
-          const spotifySongId = `spotify_${track.id}`;
-          const alreadyInQueue = songExists(spotifySongId);
-
+          const alreadyInQueue = songExists(`spotify_${track.id}`);
           return (
             <div key={track.id}>
               <img src={track.image} width="50" alt="" />
-              <span>
-                {track.name} - {track.artist}
-              </span>
-
-              <button
-                onClick={() => addSong(track)}
-                disabled={loadingId === track.id || alreadyInQueue}
-              >
-                {alreadyInQueue
-                  ? "Added"
-                  : loadingId === track.id
-                    ? "Adding..."
-                    : "Add"}
+              <span>{track.name} - {track.artist}</span>
+              <button onClick={() => addTrack(track)} disabled={loadingId === track.id || alreadyInQueue}>
+                {alreadyInQueue ? "Added" : loadingId === track.id ? "Adding..." : "Add"}
               </button>
             </div>
           );
