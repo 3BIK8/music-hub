@@ -20,8 +20,8 @@ const songSchema = new mongoose.Schema(
       type: String,
       required: true,
       index: true,
-      trim: true,
       unique: true,
+      trim: true,
     },
     durationBucket: { type: Number, required: true, default: 0, index: true },
     title: { type: String, trim: true },
@@ -32,8 +32,12 @@ const songSchema = new mongoose.Schema(
     processing: { type: Boolean, default: false, index: true },
     processingError: { type: String, trim: true, default: "" },
   },
-  { timestamps: true },
+  { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } },
 );
+
+songSchema.virtual("id").get(function getCanonicalId() {
+  return this.songId;
+});
 
 songSchema.index({ platform: 1, sourceId: 1 }, { unique: true });
 songSchema.index({ normalizedKey: 1 }, { unique: true });

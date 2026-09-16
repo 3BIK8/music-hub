@@ -1,79 +1,55 @@
 import express from "express";
 import Song from "../models/Song.js";
-import {
-  fetchYoutubeVideo,
-  getYoutubeId,
-} from "../services/youtube.service.js";
+import { fetchYoutubeVideo, getYoutubeId } from "../services/youtube.service.js";
 import { buildSongIdentity } from "../services/songIdentity.service.js";
 import { extractAndUploadAudio } from "../services/audio.service.js";
+import { createOrGetSong } from "../services/song.service.js";
 
 const router = express.Router();
 
-/* =========================
-   GET ALL SONGS
-========================= */
 router.get("/", async (req, res) => {
   try {
     const songs = await Song.find().sort({ createdAt: -1 });
     return res.json(songs);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error("List songs failed:", err);
+    return res.status(500).json({ error: "Failed to load songs" });
   }
 });
 
-/* =========================
-   BACKGROUND AUDIO PROCESS
-========================= */
 const startAudioJob = (songId, youtubeUrl) => {
   setImmediate(async () => {
     try {
       const song = await Song.findById(songId);
       if (!song || song.audioUrl) return;
 
-      await Song.updateOne({ _id: songId }, { $set: { processing: true } });
-
+      await Song.updateOne({ _id: songId }, { $set: { processing: true, processingError: "" } });
       const audioUrl = await extractAndUploadAudio(youtubeUrl);
 
       await Song.updateOne(
         { _id: songId },
-        {
-          $set: {
-            audioUrl,
-            processing: false,
-            processingError: "",
-          },
-        },
+        { $set: { audioUrl, processing: false, processingError: "" } },
       );
     } catch (err) {
+      console.error(`Audio job failed for ${songId}:`, err);
       await Song.updateOne(
         { _id: songId },
-        {
-          $set: {
-            processing: false,
-            processingError: err.message,
-          },
-        },
+        { $set: { processing: false, processingError: err.message } },
       );
     }
   });
 };
 
-/* =========================
-   CREATE YOUTUBE SONG
-========================= */
 router.post("/", async (req, res) => {
   try {
     const url = String(req.body.url || "").trim();
-    if (!url) {
-      return res.status(400).json({ error: "Missing YouTube URL" });
-    }
+    if (!url) return res.status(400).json({ error: "Missing YouTube URL" });
 
     const video = await fetchYoutubeVideo(url);
-    if (!video) {
-      return res.status(400).json({ error: "Video not found" });
-    }
+    if (!video) return res.status(400).json({ error: "Video not found" });
 
     const sourceId = video.videoId || getYoutubeId(url);
+    if (!sourceId) return res.status(400).json({ error: "Invalid YouTube URL" });
 
     const identity = buildSongIdentity({
       title: video.title,
@@ -81,15 +57,7 @@ router.post("/", async (req, res) => {
       duration: video.duration,
     });
 
-    const existing = await Song.findOne({
-      normalizedKey: identity.normalizedKey,
-    });
-
-    if (existing) {
-      return res.json({ song: existing, isExisting: true });
-    }
-
-    const song = await Song.create({
+    const result = await createOrGetSong({
       songId: `youtube_${sourceId}`,
       platform: "youtube",
       sourceId,
@@ -104,45 +72,34 @@ router.post("/", async (req, res) => {
       processingError: "",
     });
 
-    // 🔥 THIS WAS MISSING (MAIN BUG)
-    startAudioJob(song._id, video.url);
-
-    return res.json({ song, isExisting: false });
+    if (!result.isExisting) startAudioJob(result.song._id, video.url);
+    return res.json(result);
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: err.message });
+    console.error("YouTube song creation failed:", err);
+    return res.status(500).json({ error: "Failed to create song" });
   }
 });
 
-/* =========================
-   DELETE SONG
-========================= */
 router.delete("/:id", async (req, res) => {
   try {
     const deleted = await Song.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ error: "Not found" });
-
+    if (!deleted) return res.status(404).json({ error: "Song not found" });
     return res.json({ msg: "deleted" });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error("Delete song failed:", err);
+    return res.status(500).json({ error: "Failed to delete song" });
   }
 });
 
-/* =========================
-   CLEAN INVALID SONGS
-========================= */
 router.delete("/cleanup/invalid", async (req, res) => {
   try {
     const result = await Song.deleteMany({
       $or: [{ title: "" }, { normalizedKey: "" }, { normalizedKey: null }],
     });
-
-    return res.json({
-      msg: "cleanup done",
-      deleted: result.deletedCount,
-    });
+    return res.json({ msg: "cleanup done", deleted: result.deletedCount });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error("Song cleanup failed:", err);
+    return res.status(500).json({ error: "Failed to clean invalid songs" });
   }
 });
 
