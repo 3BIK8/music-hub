@@ -39,66 +39,150 @@
 /* GRID */
 .songlist-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 120px));
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   justify-content: center;
-  gap: 16px;
+  gap: 20px;
   padding: 20px;
+}
+
+.songlist-card-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 /* CARD */
 .songlist-card {
   position: relative;
-  width: 120px;
-  aspect-ratio: 1 / 1;
-  border-radius: 10px;
+  width: 160px;
+  border-radius: 14px;
   overflow: hidden;
+  background: #141414;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
   cursor: pointer;
-  transition: transform 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
   touch-action: manipulation; /* for better mobile dragging performance */
+  display: grid;
+  grid-template-rows: auto auto;
 }
 
 .songlist-card:hover {
-  transform: scale(1.03);
+  transform: translateY(-2px);
+  box-shadow: 0 18px 32px rgba(0, 0, 0, 0.35);
 }
 
 /* IMAGE */
+.songlist-image-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+}
+
 .songlist-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-/* OVERLAY */
-.songlist-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  opacity: 0;
-  transition: 0.2s;
+.songlist-card-footer {
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  background: #121212;
 }
 
-.songlist-card:hover .songlist-overlay {
-  opacity: 1;
-}
-
-/* TITLE */
 .songlist-title {
   color: white;
   font-size: 14px;
-  text-align: center;
-  padding: 5px;
-  user-select: none;
-  pointer-events: none;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 /* ACTIONS */
-.songlist-actions {
+.songlist-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+}
+
+.song-action-btn {
+  background: var(--burgundy);
+  border: none;
+  min-width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+  padding: 0 10px;
+}
+
+.song-action-btn:hover {
+  background: #b00438;
+}
+
+/* Drag handle */
+.drag-handle {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: white;
+  font-size: 14px;
+  cursor: grab;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.songlist-artist {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+}
+
+.songlist-processing,
+.songlist-duplicate {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  left: 8px;
+  bottom: 8px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+
+.songlist-duplicate {
+  right: 8px;
+  left: auto;
+}
+
+.songlist-drag-indicator {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 24px;
+  height: 24px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: white;
+  z-index: 10;
+  pointer-events: none;
 }
 
 .song-action-btn {
@@ -119,6 +203,71 @@
 
 .song-action-btn:hover {
   background: #b00438;
+}
+
+/* Drag handle */
+.drag-handle {
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: white;
+  font-size: 14px;
+  cursor: grab;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+}
+
+.songlist-artist {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.songlist-processing {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.songlist-duplicate {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+/* Library card action row */
+.songlist-actions-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: center;
+}
+
+.small-btn {
+  background: var(--burgundy);
+  border: none;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.small-btn.danger {
+  background: #8b0000;
 }
 
 /* DRAG INDICATOR */

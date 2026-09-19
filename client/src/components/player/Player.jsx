@@ -21,7 +21,7 @@ export default function Player() {
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (!currentSong?.audioUrl) {
+    if (!currentSong?.audio?.url) {
       audio.pause();
       audio.removeAttribute("src");
       audio.load();
@@ -31,24 +31,24 @@ export default function Player() {
       return;
     }
 
-    if (audio.src !== currentSong.audioUrl) {
-      audio.src = currentSong.audioUrl;
+    if (audio.src !== currentSong.audio.url) {
+      audio.src = currentSong.audio.url;
       audio.load();
       setUiProgress(0);
       setDuration(0);
     }
-  }, [currentSong?.songId, currentSong?.audioUrl, isPlaying, setIsPlaying]);
+  }, [currentSong?.songId, currentSong?.audio?.url, isPlaying, setIsPlaying]);
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !currentSong?.audioUrl) return;
+    if (!audio || !currentSong?.audio?.url) return;
 
     if (isPlaying) {
       audio.play().catch(() => setIsPlaying(false));
     } else {
       audio.pause();
     }
-  }, [isPlaying, currentSong?.songId, currentSong?.audioUrl, setIsPlaying]);
+  }, [isPlaying, currentSong?.songId, currentSong?.audio?.url, setIsPlaying]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -79,14 +79,21 @@ export default function Player() {
 
   if (!currentSong) return null;
 
-  const canPlayCurrentSong = Boolean(currentSong.audioUrl);
+  const providerMeta =
+    currentSong.providers?.[currentSong.preferredProvider] ||
+    currentSong.providers?.spotify ||
+    currentSong.providers?.youtube ||
+    {};
+  const title =
+    providerMeta.title || currentSong.canonical?.title || currentSong.title;
+  const canPlayCurrentSong = Boolean(currentSong.audio?.url);
 
   return (
     <div className="player-container">
       <audio ref={audioRef} />
 
       <div className="player-title">
-        {currentSong.title}
+        {title}
         {!canPlayCurrentSong ? " (processing...)" : ""}
       </div>
 

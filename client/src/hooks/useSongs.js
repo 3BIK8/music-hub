@@ -1,12 +1,19 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
 
+const getSongKey = (song = {}) => {
+  const key = String(
+    song.audioKey || song.normalizedKey || song._id || song.songId || "",
+  ).trim();
+  return key || null;
+};
+
 const dedupeBySongId = (songs = []) => {
   const seen = new Set();
   const deduped = [];
 
   for (const song of songs) {
-    const songId = song?.songId;
+    const songId = getSongKey(song);
     if (!songId || seen.has(songId)) continue;
 
     seen.add(songId);
@@ -47,18 +54,21 @@ export const useSongs = () => {
   };
 
   const deleteSong = (songOrId) => {
-    const payload =
-      typeof songOrId === "object" && songOrId !== null
-        ? songOrId
-        : {
-            songId: String(songOrId || "").includes("_") ? songOrId : null,
-            _id: String(songOrId || "").includes("_") ? null : songOrId,
-          };
+    let matchById = null;
+    if (typeof songOrId === "object" && songOrId !== null) {
+      matchById = songOrId._id || songOrId.songId || null;
+    } else if (typeof songOrId === "string") {
+      const str = songOrId;
+      const isMongoId = /^[0-9a-fA-F]{24}$/.test(str);
+      matchById = isMongoId ? { _id: str } : { songId: str };
+    }
+
+    if (!matchById) return;
 
     setSongs((prevSongs) => {
       return prevSongs.filter((song) => {
-        if (payload.songId && song.songId === payload.songId) return false;
-        if (payload._id && song._id === payload._id) return false;
+        if (matchById._id && song._id === matchById._id) return false;
+        if (matchById.songId && song.songId === matchById.songId) return false;
         return true;
       });
     });

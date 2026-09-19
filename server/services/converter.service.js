@@ -15,22 +15,26 @@ export async function spotifyToYoutube(track) {
 
   if (!videoId) throw new Error("No video found");
 
-  const youtubeSongId = `youtube_${videoId}`;
-
-  const existingYoutube = await Song.findOne({ songId: youtubeSongId });
-  if (existingYoutube?.audioUrl) return existingYoutube;
-
   const identity = buildSongIdentity({
     title: track.name,
     artist: track.artist,
     duration: track.duration_ms,
+    source: "spotify",
   });
 
   const existingGlobal = await Song.findOne({
     normalizedKey: identity.normalizedKey,
   });
 
-  if (existingGlobal?.audioUrl) return existingGlobal;
+  if (existingGlobal?.audio?.url) {
+    const result = {
+      youtubeId: existingGlobal.audio.sourceId,
+      audioUrl: existingGlobal.audio.url,
+    };
+
+    cache.set(key, result);
+    return result;
+  }
 
   const url = `https://www.youtube.com/watch?v=${videoId}`;
   const audioUrl = await extractAndUploadAudio(url);

@@ -6,6 +6,7 @@ import { PlayerContext } from "../../context/PlayerContext";
 export default function SpotifySearch() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [loadingId, setLoadingId] = useState(null);
   const [error, setError] = useState("");
 
@@ -20,13 +21,17 @@ export default function SpotifySearch() {
   const search = async () => {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) return;
-
+    setIsSearching(true);
     try {
-      const res = await api.get(`/spotify/search?q=${encodeURIComponent(trimmedQuery)}`);
-      setResults(res.data);
+      const res = await api.get(
+        `/spotify/search?q=${encodeURIComponent(trimmedQuery)}`,
+      );
+      setResults(res.data || []);
     } catch (err) {
       console.error(err);
-      showError("Search failed");
+      showError(err.response?.data?.error || "Search failed");
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -48,11 +53,27 @@ export default function SpotifySearch() {
       songId: spotifySongId,
       platform: "spotify",
       sourceId: track.id,
-      title: track.name,
-      thumbnail: track.image,
-      url: track.url,
-      audioUrl: "",
-      duration: "",
+      canonical: {
+        title: track.name,
+        artist: track.artist,
+        duration: Math.floor((track.duration_ms || 0) / 1000),
+      },
+      providers: {
+        spotify: {
+          sourceId: track.id,
+          title: track.name,
+          artist: track.artist,
+          thumbnail: track.image,
+          url: track.url,
+          duration: Math.floor((track.duration_ms || 0) / 1000),
+        },
+      },
+      preferredProvider: "spotify",
+      audio: {
+        status: "processing",
+        url: "",
+        source: "spotify",
+      },
       processing: true,
     });
 
@@ -83,7 +104,9 @@ export default function SpotifySearch() {
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search Spotify..."
       />
-      <button onClick={search}>Search</button>
+      <button onClick={search} disabled={isSearching}>
+        {isSearching ? "Searching..." : "Search"}
+      </button>
 
       {error && <div className="error-toast">{error}</div>}
 

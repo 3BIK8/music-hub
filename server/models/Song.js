@@ -1,5 +1,33 @@
 import mongoose from "mongoose";
 
+const providerSchema = new mongoose.Schema(
+  {
+    sourceId: { type: String, trim: true, default: "" },
+    title: { type: String, trim: true, default: "" },
+    artist: { type: String, trim: true, default: "" },
+    thumbnail: { type: String, trim: true, default: "" },
+    url: { type: String, trim: true, default: "" },
+    duration: { type: Number, default: 0 },
+    channel: { type: String, trim: true, default: "" },
+  },
+  { _id: false },
+);
+
+const audioSchema = new mongoose.Schema(
+  {
+    status: {
+      type: String,
+      enum: ["processing", "ready", "error"],
+      default: "processing",
+    },
+    url: { type: String, trim: true, default: "" },
+    source: { type: String, enum: ["youtube", "spotify"], default: "youtube" },
+    sourceId: { type: String, trim: true, default: "" },
+    error: { type: String, trim: true, default: "" },
+  },
+  { _id: false },
+);
+
 const songSchema = new mongoose.Schema(
   {
     songId: {
@@ -9,33 +37,60 @@ const songSchema = new mongoose.Schema(
       index: true,
       trim: true,
     },
-    platform: {
+
+    audioKey: {
       type: String,
       required: true,
-      enum: ["youtube", "spotify"],
+      unique: true,
       index: true,
+      trim: true,
     },
-    sourceId: { type: String, required: true, index: true, trim: true },
+
     normalizedKey: {
       type: String,
       required: true,
+      unique: true,
       index: true,
       trim: true,
-      unique: true,
     },
-    durationBucket: { type: Number, required: true, default: 0, index: true },
-    title: { type: String, trim: true },
-    url: { type: String, trim: true },
-    thumbnail: { type: String, trim: true },
-    duration: { type: String, default: "" },
-    audioUrl: { type: String, trim: true },
-    processing: { type: Boolean, default: false, index: true },
-    processingError: { type: String, trim: true, default: "" },
+
+    title: { type: String, trim: true, default: "" },
+    url: { type: String, trim: true, default: "" },
+    thumbnail: { type: String, trim: true, default: "" },
+    duration: { type: Number, default: 0 },
+
+    canonical: {
+      title: { type: String, trim: true, default: "" },
+      artist: { type: String, trim: true, default: "" },
+      duration: { type: Number, default: 0 },
+    },
+
+    audio: {
+      type: audioSchema,
+      default: () => ({}),
+    },
+
+    providers: {
+      youtube: {
+        type: providerSchema,
+        default: null,
+      },
+      spotify: {
+        type: providerSchema,
+        default: null,
+      },
+    },
+
+    preferredProvider: {
+      type: String,
+      enum: ["youtube", "spotify"],
+      default: "youtube",
+    },
   },
   { timestamps: true },
 );
 
-songSchema.index({ platform: 1, sourceId: 1 }, { unique: true });
+songSchema.index({ audioKey: 1 }, { unique: true });
 songSchema.index({ normalizedKey: 1 }, { unique: true });
 
 export default mongoose.model("Song", songSchema);

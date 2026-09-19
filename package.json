@@ -5,7 +5,8 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "migrate:fix-platform": "node server/scripts/migrate_fix_platform_sourceId.js"
   },
   "dependencies": {
     "axios": "^1.15.0",

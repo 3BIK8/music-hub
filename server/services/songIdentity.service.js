@@ -1,5 +1,6 @@
 import {
   normalizeYoutubeTitle,
+  extractArtistAndTitle,
   buildDurationBucket,
 } from "../utils/normalizeYoutubeTitle.js";
 
@@ -23,7 +24,6 @@ const STOP_WORDS = [
 const clean = (text = "") => {
   return normalizeYoutubeTitle(text)
     .toLowerCase()
-    .replace(/\(.*?\)|\[.*?\]/g, "")
     .split(" ")
     .filter((w) => w && !STOP_WORDS.includes(w))
     .join(" ")
@@ -31,19 +31,65 @@ const clean = (text = "") => {
     .trim();
 };
 
-export function buildSongIdentity({ title, artist = "", duration }) {
-  const cleanTitle = clean(title);
-  const cleanArtist = clean(artist);
+const parseDurationSeconds = (duration) => {
+  if (typeof duration === "number") {
+    return Math.round(duration > 1000 ? duration / 1000 : duration);
+  }
 
-  const normalizedText = `${cleanArtist} ${cleanTitle}`
-    .replace(/\s+/g, " ")
+  if (typeof duration === "string") {
+    const match = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(duration) || [];
+    const h = Number(match[1] || 0);
+    const m = Number(match[2] || 0);
+    const s = Number(match[3] || 0);
+    return h * 3600 + m * 60 + s;
+  }
+
+  return 0;
+};
+
+const normalizeText = (text = "") => clean(text);
+
+export function buildSongIdentity({
+  title,
+  artist = "",
+  duration,
+  source = "youtube",
+}) {
+  const rawTitle = String(title || "").trim();
+  const rawArtist = String(artist || "").trim();
+
+  let canonicalArtist = normalizeText(rawArtist);
+  let canonicalTitle = normalizeText(rawTitle);
+
+  if (source === "youtube") {
+    const parsed = extractArtistAndTitle(normalizeYoutubeTitle(rawTitle));
+    canonicalArtist = normalizeText(parsed.artist || rawArtist);
+    canonicalTitle = normalizeText(parsed.title || rawTitle);
+  }
+
+  if (!canonicalTitle && rawTitle) {
+    canonicalTitle = normalizeText(rawTitle);
+  }
+  if (!canonicalArtist && rawArtist) {
+    canonicalArtist = normalizeText(rawArtist);
+  }
+
+  const durationSeconds = parseDurationSeconds(duration);
+  const durationBucket = buildDurationBucket(durationSeconds);
+
+  const normalizedText = [canonicalArtist, canonicalTitle]
+    .filter(Boolean)
+    .join(" ")
     .trim();
-
-  const durationBucket = buildDurationBucket(duration);
 
   return {
     normalizedKey: `${normalizedText}_${durationBucket}`,
     durationBucket,
     normalizedText,
+    canonical: {
+      title: canonicalTitle,
+      artist: canonicalArtist,
+      duration: durationSeconds,
+    },
   };
 }

@@ -1,10 +1,19 @@
-import { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 export const PlayerContext = createContext();
 
-const getSongId = (song) => {
-  const id = typeof song?.songId === "string" ? song.songId.trim() : "";
-  return id || null;
+const getSongKey = (song) => {
+  if (!song || typeof song !== "object") return null;
+  const key = String(
+    song.audioKey || song.normalizedKey || song._id || song.songId || "",
+  ).trim();
+  return key || null;
 };
 
 const dedupeSongs = (songs = []) => {
@@ -12,10 +21,10 @@ const dedupeSongs = (songs = []) => {
   const normalized = [];
 
   for (const song of songs) {
-    const songId = getSongId(song);
-    if (!songId || seen.has(songId)) continue;
+    const songKey = getSongKey(song);
+    if (!songKey || seen.has(songKey)) continue;
 
-    seen.add(songId);
+    seen.add(songKey);
     normalized.push(song);
   }
 
@@ -49,15 +58,17 @@ export function PlayerProvider({ children }) {
       return;
     }
 
-    const hasCurrentSong = queue.some((song) => getSongId(song) === currentSongId);
+    const hasCurrentSong = queue.some(
+      (song) => getSongKey(song) === currentSongId,
+    );
     if (!hasCurrentSong) {
-      setCurrentSongId(getSongId(queue[0]));
+      setCurrentSongId(getSongKey(queue[0]));
     }
   }, [queue, currentSongId, isPlaying]);
 
   const currentIndex = useMemo(() => {
     if (!queue.length || !currentSongId) return -1;
-    return queue.findIndex((song) => getSongId(song) === currentSongId);
+    return queue.findIndex((song) => getSongKey(song) === currentSongId);
   }, [queue, currentSongId]);
 
   const currentSong = useMemo(() => {
@@ -84,7 +95,7 @@ export function PlayerProvider({ children }) {
         Math.min(queue.length - 1, Math.trunc(numericIndex)),
       );
 
-      const nextSongId = getSongId(queue[clampedIndex]);
+      const nextSongId = getSongKey(queue[clampedIndex]);
       if (!nextSongId) return;
 
       setCurrentSongId(nextSongId);
@@ -96,7 +107,7 @@ export function PlayerProvider({ children }) {
     (songId) => {
       if (!songId) return;
 
-      const existsInQueue = queue.some((song) => getSongId(song) === songId);
+      const existsInQueue = queue.some((song) => getSongKey(song) === songId);
       if (!existsInQueue) return;
 
       setCurrentSongId(songId);
@@ -110,12 +121,12 @@ export function PlayerProvider({ children }) {
       const songId =
         typeof songOrSongId === "string"
           ? songOrSongId
-          : getSongId(songOrSongId);
+          : getSongKey(songOrSongId);
 
       if (!songId) return;
 
       setQueueState((prevQueue) =>
-        prevQueue.filter((song) => getSongId(song) !== songId),
+        prevQueue.filter((song) => getSongKey(song) !== songId),
       );
 
       if (songId === currentSongId) {
@@ -127,7 +138,7 @@ export function PlayerProvider({ children }) {
 
   const addSongOptimistic = useCallback(
     (song, options = {}) => {
-      const songId = getSongId(song);
+      const songId = getSongKey(song);
       if (!songId) return;
 
       const { playNext = false, startPlaying = false } = options;
@@ -135,13 +146,13 @@ export function PlayerProvider({ children }) {
       setQueueState((prevQueue) => {
         const normalizedQueue = dedupeSongs(prevQueue);
 
-        if (normalizedQueue.some((item) => getSongId(item) === songId)) {
+        if (normalizedQueue.some((item) => getSongKey(item) === songId)) {
           return normalizedQueue;
         }
 
         if (playNext && currentSongId) {
           const currentPosition = normalizedQueue.findIndex(
-            (item) => getSongId(item) === currentSongId,
+            (item) => getSongKey(item) === currentSongId,
           );
 
           if (currentPosition !== -1) {
@@ -170,7 +181,7 @@ export function PlayerProvider({ children }) {
       const targetSongId =
         typeof songOrSongId === "string"
           ? songOrSongId
-          : getSongId(songOrSongId);
+          : getSongKey(songOrSongId);
 
       if (!targetSongId) return;
 
@@ -182,9 +193,9 @@ export function PlayerProvider({ children }) {
       setQueueState((prevQueue) =>
         dedupeSongs(
           prevQueue.map((song) => {
-            if (getSongId(song) !== targetSongId) return song;
+            if (getSongKey(song) !== targetSongId) return song;
 
-            const nextSongId = getSongId(newData) || targetSongId;
+            const nextSongId = getSongKey(newData) || targetSongId;
             return {
               ...song,
               ...newData,
@@ -202,11 +213,11 @@ export function PlayerProvider({ children }) {
       const songId =
         typeof songOrSongId === "string"
           ? songOrSongId
-          : getSongId(songOrSongId);
+          : getSongKey(songOrSongId);
 
       if (!songId) return false;
 
-      return queue.some((song) => getSongId(song) === songId);
+      return queue.some((song) => getSongKey(song) === songId);
     },
     [queue],
   );
@@ -215,23 +226,23 @@ export function PlayerProvider({ children }) {
     ({ wrap = false } = {}) => {
       if (!queue.length) return;
 
-      const activeSongId = currentSongId || getSongId(queue[0]);
+      const activeSongId = currentSongId || getSongKey(queue[0]);
       const activeIndex = queue.findIndex(
-        (song) => getSongId(song) === activeSongId,
+        (song) => getSongKey(song) === activeSongId,
       );
 
       if (activeIndex === -1) {
-        setCurrentSongId(getSongId(queue[0]));
+        setCurrentSongId(getSongKey(queue[0]));
         return;
       }
 
       if (activeIndex < queue.length - 1) {
-        setCurrentSongId(getSongId(queue[activeIndex + 1]));
+        setCurrentSongId(getSongKey(queue[activeIndex + 1]));
         return;
       }
 
       if (wrap) {
-        setCurrentSongId(getSongId(queue[0]));
+        setCurrentSongId(getSongKey(queue[0]));
       }
     },
     [queue, currentSongId],
@@ -240,15 +251,17 @@ export function PlayerProvider({ children }) {
   const playPrev = useCallback(() => {
     if (!queue.length) return;
 
-    const activeSongId = currentSongId || getSongId(queue[0]);
-    const activeIndex = queue.findIndex((song) => getSongId(song) === activeSongId);
+    const activeSongId = currentSongId || getSongKey(queue[0]);
+    const activeIndex = queue.findIndex(
+      (song) => getSongKey(song) === activeSongId,
+    );
 
     if (activeIndex > 0) {
-      setCurrentSongId(getSongId(queue[activeIndex - 1]));
+      setCurrentSongId(getSongKey(queue[activeIndex - 1]));
       return;
     }
 
-    setCurrentSongId(getSongId(queue[0]));
+    setCurrentSongId(getSongKey(queue[0]));
   }, [queue, currentSongId]);
 
   return (
@@ -269,7 +282,7 @@ export function PlayerProvider({ children }) {
         playSongBySongId,
         playNext,
         playPrev,
-        getId: getSongId,
+        getId: getSongKey,
       }}
     >
       {children}

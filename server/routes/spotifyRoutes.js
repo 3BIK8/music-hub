@@ -2,7 +2,6 @@ import express from "express";
 import Song from "../models/Song.js";
 import { searchTracks } from "../services/spotify.service.js";
 import { spotifyToYoutube } from "../services/converter.service.js";
-import { formatDurationMs } from "../utils/formatDuration.js";
 import { buildSongIdentity } from "../services/songIdentity.service.js";
 
 const router = express.Router();
@@ -13,87 +12,136 @@ const getTrackArtist = (t) =>
 const buildSpotifyTrackUrl = (t) =>
   t?.external_urls?.spotify || `https://open.spotify.com/track/${t.id}`;
 
-/* =========================
-   CREATE / GET SPOTIFY SONG
-========================= */
 const createOrGetSpotifySong = async (track) => {
   if (!track?.id || !track?.name) {
     throw new Error("Invalid track");
   }
 
-  const sourceId = track.id;
-  const songId = `spotify_${sourceId}`;
+  const sourceId = String(track.id).trim();
+  if (!sourceId || sourceId === "undefined") {
+    throw new Error("Invalid Spotify sourceId");
+  }
+
   const artist = getTrackArtist(track);
+  const durationSeconds = Math.floor((track.duration_ms || 0) / 1000);
 
   const identity = buildSongIdentity({
     title: track.name,
     artist,
-    duration: track.duration_ms,
+    duration: durationSeconds,
+    source: "spotify",
   });
 
-  /* -------------------------
-     1. STRICT DEDUPE (GLOBAL)
-  ------------------------- */
-  const existingGlobal = await Song.findOne({
-    normalizedKey: identity.normalizedKey,
-  });
+  const spotifyProvider = {
+    sourceId,
+    title: track.name,
+    artist,
+    thumbnail: track.image || "",
+    url: buildSpotifyTrackUrl(track),
+    duration: durationSeconds,
+  };
 
-  if (existingGlobal) {
-    return { song: existingGlobal, isExisting: true };
-  }
-
-  /* -------------------------
-     2. CONVERT TO YOUTUBE
-  ------------------------- */
   const conversion = await spotifyToYoutube({
     id: sourceId,
     name: track.name,
     artist,
     image: track.image,
+    duration_ms: track.duration_ms,
   });
 
-  /* -------------------------
-     3. RECHECK AFTER CONVERSION
-     (race condition safety)
-  ------------------------- */
-  const existingAfter = await Song.findOne({
-    normalizedKey: identity.normalizedKey,
-  });
+  const youtubeProvider = conversion.youtubeId
+    ? {
+        sourceId: conversion.youtubeId,
+        title: track.name,
+        artist,
+        thumbnail: conversion.thumbnail || "",
+        url: `https://www.youtube.com/watch?v=${conversion.youtubeId}`,
+        duration: durationSeconds,
+      }
+    : null;
 
-  if (existingAfter) {
-    return { song: existingAfter, isExisting: true };
-  }
-
-  /* -------------------------
-     4. CREATE NEW SONG
-  ------------------------- */
-  const song = await Song.create({
-    songId,
+  const upsertDoc = {
+    songId: identity.normalizedKey,
     platform: "spotify",
     sourceId,
+    audioKey: identity.normalizedKey,
     normalizedKey: identity.normalizedKey,
-    durationBucket: identity.durationBucket,
-    title: track.name,
+    title: identity.canonical.title,
     url: buildSpotifyTrackUrl(track),
-    thumbnail: track.image,
-    duration: formatDurationMs(track.duration_ms),
-    audioUrl: conversion.audioUrl,
-    processing: false,
-    processingError: "",
-  });
+    thumbnail: track.image || conversion.thumbnail || "",
+    duration: identity.canonical.duration,
+    canonical: identity.canonical,
+    audio: {
+      status: conversion.audioUrl ? "ready" : "processing",
+      url: conversion.audioUrl || "",
+      source: "youtube",
+      sourceId: conversion.youtubeId || "",
+    },
+    providers: {
+      spotify: spotifyProvider,
+      youtube: youtubeProvider,
+    },
+    preferredProvider: "spotify",
+  };
 
-  return { song, isExisting: false };
+  const result = await Song.collection.findOneAndUpdate(
+    { normalizedKey: identity.normalizedKey },
+    { $setOnInsert: upsertDoc },
+    { upsert: true, returnDocument: "after" },
+  );
+
+  const created = !!(result.lastErrorObject && result.lastErrorObject.upserted);
+  const song = await Song.findById(result.value._id);
+
+  let changed = false;
+  if (!song.providers || !song.providers.spotify) {
+    song.providers = {
+      ...song.providers,
+      spotify: spotifyProvider,
+    };
+    changed = true;
+  }
+
+  if (youtubeProvider && (!song.providers || !song.providers.youtube)) {
+    song.providers = {
+      ...song.providers,
+      youtube: youtubeProvider,
+    };
+    changed = true;
+  }
+
+  if (!song.preferredProvider) {
+    song.preferredProvider = "spotify";
+    changed = true;
+  }
+
+  const canonical = {
+    title: identity.canonical.title || song.canonical?.title,
+    artist: identity.canonical.artist || song.canonical?.artist,
+    duration: identity.canonical.duration || song.canonical?.duration,
+  };
+
+  if (
+    !song.canonical ||
+    song.canonical.title !== canonical.title ||
+    song.canonical.artist !== canonical.artist ||
+    song.canonical.duration !== canonical.duration
+  ) {
+    song.canonical = canonical;
+    changed = true;
+  }
+
+  if (changed) {
+    await song.save();
+  }
+
+  return { song, isExisting: !created };
 };
 
-/* =========================
-   ADD SONG
-========================= */
 router.post("/", async (req, res) => {
   try {
     const track = req.body.track || req.body;
-
     const result = await createOrGetSpotifySong(track);
-
     return res.json(result);
   } catch (err) {
     console.error("Spotify route error:", err);
@@ -101,9 +149,6 @@ router.post("/", async (req, res) => {
   }
 });
 
-/* =========================
-   SEARCH
-========================= */
 router.get("/search", async (req, res) => {
   try {
     const q = String(req.query.q || "").trim();
