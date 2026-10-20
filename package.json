@@ -5,7 +5,10 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "dev": "nodemon server.js",
+    "dev": "nodemon server/server.js",
+    "build": "npm --prefix client run build",
+    "check": "node scripts/check-syntax.js",
+    "test": "node --test",
     "migrate:fix-platform": "node server/scripts/migrate_fix_platform_sourceId.js"
   },
   "dependencies": {
@@ -18,7 +21,9 @@
     "fluent-ffmpeg": "^2.1.3",
     "googleapis": "^123.0.0",
     "mongoose": "^7.6.1",
-    "youtube-dl-exec": "^3.1.5",
-    "ytdl-core": "^4.11.5"
+    "youtube-dl-exec": "^3.1.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
   }
 }
