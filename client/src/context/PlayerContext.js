@@ -5,31 +5,13 @@ import {
   useMemo,
   useState,
 } from "react";
+import {
+  addSongToQueue,
+  dedupeSongs,
+  getSongKey,
+} from "./queueUtils.mjs";
 
 export const PlayerContext = createContext();
-
-const getSongKey = (song) => {
-  if (!song || typeof song !== "object") return null;
-  const key = String(
-    song.audioKey || song.normalizedKey || song._id || song.songId || "",
-  ).trim();
-  return key || null;
-};
-
-const dedupeSongs = (songs = []) => {
-  const seen = new Set();
-  const normalized = [];
-
-  for (const song of songs) {
-    const songKey = getSongKey(song);
-    if (!songKey || seen.has(songKey)) continue;
-
-    seen.add(songKey);
-    normalized.push(song);
-  }
-
-  return normalized;
-};
 
 export function PlayerProvider({ children }) {
   const [queue, setQueueState] = useState([]);
@@ -143,27 +125,9 @@ export function PlayerProvider({ children }) {
 
       const { playNext = false, startPlaying = false } = options;
 
-      setQueueState((prevQueue) => {
-        const normalizedQueue = dedupeSongs(prevQueue);
-
-        if (normalizedQueue.some((item) => getSongKey(item) === songId)) {
-          return normalizedQueue;
-        }
-
-        if (playNext && currentSongId) {
-          const currentPosition = normalizedQueue.findIndex(
-            (item) => getSongKey(item) === currentSongId,
-          );
-
-          if (currentPosition !== -1) {
-            const nextQueue = [...normalizedQueue];
-            nextQueue.splice(currentPosition + 1, 0, song);
-            return nextQueue;
-          }
-        }
-
-        return [...normalizedQueue, song];
-      });
+      setQueueState((prevQueue) =>
+        addSongToQueue(prevQueue, song, { currentSongId, playNext }),
+      );
 
       if (startPlaying || !currentSongId) {
         setCurrentSongId(songId);
