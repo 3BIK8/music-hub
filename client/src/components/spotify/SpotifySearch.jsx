@@ -9,6 +9,7 @@ export default function SpotifySearch() {
   const [isSearching, setIsSearching] = useState(false);
   const [loadingId, setLoadingId] = useState(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   const { addSongOptimistic, updateSong, removeSong, songExists } =
     useContext(PlayerContext);
@@ -16,6 +17,11 @@ export default function SpotifySearch() {
   const showError = (message) => {
     setError(message);
     setTimeout(() => setError(""), 3000);
+  };
+
+  const showNotice = (message) => {
+    setNotice(message);
+    setTimeout(() => setNotice(""), 3000);
   };
 
   const search = async () => {
@@ -78,20 +84,30 @@ export default function SpotifySearch() {
     });
 
     try {
-      const savedSong = await convertSpotifyTrack(track);
+      const result = await convertSpotifyTrack(track);
+      const savedSong = result?.song ?? result;
 
       if (!savedSong?.songId) {
         throw new Error("Invalid song payload returned from server");
       }
 
-      updateSong(spotifySongId, {
-        ...savedSong,
-        processing: false,
-      });
+      const isExisting = result?.isExisting ?? savedSong.isExisting;
+
+      if (songExists(savedSong) && savedSong.songId !== spotifySongId) {
+        removeSong(spotifySongId);
+      } else {
+        updateSong(spotifySongId, {
+          ...savedSong,
+          isExisting,
+          processing: false,
+        });
+      }
+
+      if (isExisting) showNotice("Already in library");
     } catch (err) {
       console.error(err);
       removeSong(spotifySongId);
-      showError("Failed to add song");
+      showError(err.response?.data?.error || "Failed to add song");
     } finally {
       setLoadingId(null);
     }
@@ -109,6 +125,7 @@ export default function SpotifySearch() {
       </button>
 
       {error && <div className="error-toast">{error}</div>}
+      {notice && <div role="status">{notice}</div>}
 
       <div>
         {results.map((track) => {
