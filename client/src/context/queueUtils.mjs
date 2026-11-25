@@ -30,20 +30,25 @@ export const addSongToQueue = (
   if (!songId) return dedupeSongs(queue);
 
   const normalizedQueue = dedupeSongs(queue);
-  if (normalizedQueue.some((item) => getSongKey(item) === songId)) {
-    return normalizedQueue;
-  }
-
-  if (playNext && currentSongId) {
-    const currentPosition = normalizedQueue.findIndex(
+  if (playNext) {
+    const queueWithoutSong = normalizedQueue.filter(
+      (item) => getSongKey(item) !== songId,
+    );
+    const currentPosition = queueWithoutSong.findIndex(
       (item) => getSongKey(item) === currentSongId,
     );
 
     if (currentPosition !== -1) {
-      const nextQueue = [...normalizedQueue];
+      const nextQueue = [...queueWithoutSong];
       nextQueue.splice(currentPosition + 1, 0, song);
       return nextQueue;
     }
+
+    return [song, ...queueWithoutSong];
+  }
+
+  if (normalizedQueue.some((item) => getSongKey(item) === songId)) {
+    return normalizedQueue;
   }
 
   return [...normalizedQueue, song];

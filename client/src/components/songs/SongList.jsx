@@ -14,7 +14,7 @@ export default function SongList({
   searchTerm = "",
   onAddToPlaylist,
 }) {
-  const { addSongOptimistic, playSongBySongId } = useContext(PlayerContext);
+  const { addSongOptimistic } = useContext(PlayerContext);
 
   return (
     <div className="songlist-container">
@@ -27,7 +27,7 @@ export default function SongList({
               <SongItem
                 song={song}
                 isSearchResult={true}
-                onPlay={() => playSongBySongId(getSongKey(song) || song.songId)}
+                onPlay={() => addSongOptimistic(song, { startPlaying: true })}
                 onAddToPlaylist={onAddToPlaylist}
                 onDelete={onDelete}
                 onAddToQueue={() => addSongOptimistic(song)}

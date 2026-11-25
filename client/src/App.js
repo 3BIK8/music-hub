@@ -11,7 +11,7 @@ import { useSearch } from "./hooks/useSearch";
 import "./styles.css";
 
 function App() {
-  const { setQueue, currentSong, removeSong } = useContext(PlayerContext);
+  const { addSongOptimistic, removeSong } = useContext(PlayerContext);
 
   const { songs, addSongs, deleteSong, cleanupInvalidSongs } = useSongs();
   const {
@@ -33,30 +33,20 @@ function App() {
     if (deleted) removeSong(song);
   };
 
+  const handleAddSongs = (songOrSongs) => {
+    const incomingSongs = Array.isArray(songOrSongs)
+      ? songOrSongs
+      : [songOrSongs];
+
+    addSongs(incomingSongs);
+    incomingSongs.forEach((song) => addSongOptimistic(song));
+  };
+
   const handlePlayNext = (song) => {
     if (!song?.songId) return;
 
-    setQueue((prevQueue) => {
-      const withoutDuplicate = prevQueue.filter(
-        (queuedSong) => queuedSong.songId !== song.songId,
-      );
-
-      if (!currentSong?.songId) {
-        return [song, ...withoutDuplicate];
-      }
-
-      const currentPosition = withoutDuplicate.findIndex(
-        (queuedSong) => queuedSong.songId === currentSong.songId,
-      );
-
-      if (currentPosition < 0) {
-        return [song, ...withoutDuplicate];
-      }
-
-      const nextQueue = [...withoutDuplicate];
-      nextQueue.splice(currentPosition + 1, 0, song);
-      return nextQueue;
-    });
+    addSongs(song);
+    addSongOptimistic(song, { playNext: true });
   };
 
   const handleAddToPlaylist = async (song) => {
@@ -101,7 +91,7 @@ function App() {
         filteredSongs={filteredSongs}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
-        onAddSongs={addSongs}
+        onAddSongs={handleAddSongs}
         onDeleteSong={handleDeleteSong}
         onCleanup={cleanupInvalidSongs}
         onAddToPlaylist={handleAddToPlaylist}
