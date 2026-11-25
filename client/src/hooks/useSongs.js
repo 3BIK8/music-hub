@@ -53,25 +53,32 @@ export const useSongs = () => {
     });
   };
 
-  const deleteSong = (songOrId) => {
-    let matchById = null;
+  const deleteSong = async (songOrId) => {
+    let songId = null;
     if (typeof songOrId === "object" && songOrId !== null) {
-      matchById = songOrId._id || songOrId.songId || null;
+      songId = songOrId._id || songOrId.songId || null;
     } else if (typeof songOrId === "string") {
-      const str = songOrId;
-      const isMongoId = /^[0-9a-fA-F]{24}$/.test(str);
-      matchById = isMongoId ? { _id: str } : { songId: str };
+      songId = songOrId;
     }
 
-    if (!matchById) return;
+    if (!songId) return false;
+    if (!window.confirm("Delete this song from your library?")) return false;
 
-    setSongs((prevSongs) => {
-      return prevSongs.filter((song) => {
-        if (matchById._id && song._id === matchById._id) return false;
-        if (matchById.songId && song.songId === matchById.songId) return false;
-        return true;
-      });
-    });
+    try {
+      await api.delete(`/songs/${songId}`);
+      setSongs((prevSongs) =>
+        prevSongs.filter(
+          (song) => song._id !== songId && song.songId !== songId,
+        ),
+      );
+      return true;
+    } catch (err) {
+      console.error("Failed to delete song:", err);
+      window.alert(
+        err.response?.data?.error || err.message || "Failed to delete song",
+      );
+      return false;
+    }
   };
 
   const cleanupInvalidSongs = async () => {

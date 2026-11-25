@@ -17,13 +17,11 @@ import {
 
 import { PlayerContext } from "../../context/PlayerContext";
 import SongItem from "../songs/SongItem";
-import api from "../../api/axios";
 import "./QueueView.css";
 
 export default function QueueView() {
   const {
     queue,
-    currentSongId,
     playSongBySongId,
     setQueue,
     removeSong,
@@ -81,7 +79,7 @@ export default function QueueView() {
         onDragOver={(event) => {
           setIsDraggingOverTrash(event.over?.id === "trash-zone");
         }}
-        onDragEnd={async (event) => {
+        onDragEnd={(event) => {
           const { active, over } = event;
           setIsDragging(false);
           setActiveId(null);
@@ -89,17 +87,7 @@ export default function QueueView() {
 
           if (!over) return;
 
-          // Delete if dropped on trash
           if (over.id === "trash-zone") {
-            const song = findSongById(active.id);
-            if (!song) return;
-            try {
-              if (song._id) {
-                await api.delete(`/songs/${song._id}`);
-              }
-            } catch (err) {
-              console.error("Failed to delete on server", err);
-            }
             removeSong(active.id);
             return;
           }
@@ -118,7 +106,7 @@ export default function QueueView() {
             className={`trash-zone ${isDraggingOverTrash ? "active" : ""}`}
             id="trash-zone"
           >
-            Drop here to delete
+            Drop here to remove from queue
           </div>
         )}
 
@@ -133,11 +121,7 @@ export default function QueueView() {
                   onPlay={() => playSongBySongId(id)}
                   dragOverlay={false}
                   isSearchResult={false}
-                  onDelete={() => {
-                    if (song._id)
-                      api.delete(`/songs/${song._id}`).catch(console.error);
-                    removeSong(id);
-                  }}
+                  onDelete={() => removeSong(id)}
                 />
               );
             })}

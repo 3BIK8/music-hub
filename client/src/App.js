@@ -11,7 +11,7 @@ import { useSearch } from "./hooks/useSearch";
 import "./styles.css";
 
 function App() {
-  const { setQueue, currentSong } = useContext(PlayerContext);
+  const { setQueue, currentSong, removeSong } = useContext(PlayerContext);
 
   const { songs, addSongs, deleteSong, cleanupInvalidSongs } = useSongs();
   const {
@@ -27,6 +27,11 @@ function App() {
     // Queue is user-managed and independent from library filtering.
     // Removed automatic syncing of queue with filteredSongs/playlist.
   }, []);
+
+  const handleDeleteSong = async (song) => {
+    const deleted = await deleteSong(song);
+    if (deleted) removeSong(song);
+  };
 
   const handlePlayNext = (song) => {
     if (!song?.songId) return;
@@ -97,7 +102,7 @@ function App() {
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         onAddSongs={addSongs}
-        onDeleteSong={deleteSong}
+        onDeleteSong={handleDeleteSong}
         onCleanup={cleanupInvalidSongs}
         onAddToPlaylist={handleAddToPlaylist}
         onPlayNext={handlePlayNext}

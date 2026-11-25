@@ -1,5 +1,6 @@
 import express from "express";
 import Song from "../models/Song.js";
+import Playlist from "../models/Playlist.js";
 import {
   fetchYoutubeVideo,
   getYoutubeId,
@@ -171,6 +172,13 @@ router.delete("/:id", async (req, res) => {
     if (!deleted) {
       return res.status(404).json({ error: "Not found" });
     }
+
+    // TODO: Delete the Cloudinary object once its public ID is stored.
+    await Playlist.updateMany(
+      { songs: req.params.id },
+      { $pull: { songs: req.params.id } },
+    );
+
     return res.json({ msg: "deleted" });
   } catch (err) {
     return res.status(500).json({ error: err.message });
