@@ -27,3 +27,5 @@ Thumbs.db
 
 # misc
 coverage/
+# local audio storage
+temp-audio/
